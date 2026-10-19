@@ -1,0 +1,17 @@
+.tools/
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Generated model and database artifacts
+*.gguf
+*.safetensors
+*.dump
+*.sql.gz
+node_modules/
+.next/
+.pytest_cache/
