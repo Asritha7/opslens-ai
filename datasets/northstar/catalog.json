@@ -1,0 +1,213 @@
+[
+  {
+    "id": "RB-017",
+    "title": "Legacy authentication recovery",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.1.0",
+    "version_max_exclusive": "2.2.0",
+    "key_rotation_enabled": null,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "restart_all_pods",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-017.md"
+  },
+  {
+    "id": "RB-042",
+    "title": "JWKS validation",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.4.0",
+    "version_max_exclusive": "2.5.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "validate_jwks",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-042.md"
+  },
+  {
+    "id": "RB-043",
+    "title": "Replica comparison",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.4.0",
+    "version_max_exclusive": "2.5.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "validate_jwks",
+        "rule": "must"
+      },
+      {
+        "action": "compare_replicas",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-043.md"
+  },
+  {
+    "id": "RB-044",
+    "title": "Staging validation",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "staging",
+    "version_min": "2.4.0",
+    "version_max_exclusive": "2.5.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security",
+      "intern"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "validate_jwks",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-044.md"
+  },
+  {
+    "id": "SEC-021",
+    "title": "Restricted security investigation",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.4.0",
+    "version_max_exclusive": "2.5.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "inspect_security_audit",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/SEC-021.md"
+  },
+  {
+    "id": "RB-050",
+    "title": "Rotation recovery A",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.5.0",
+    "version_max_exclusive": "2.6.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "disable_key_rotation",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-050.md"
+  },
+  {
+    "id": "RB-051",
+    "title": "Rotation recovery B",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.5.0",
+    "version_max_exclusive": "2.6.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "disable_key_rotation",
+        "rule": "must_not"
+      }
+    ],
+    "path": "datasets/northstar/RB-051.md"
+  },
+  {
+    "id": "RB-060",
+    "title": "Unverified future procedure",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": null,
+    "version_min": "2.6.0",
+    "version_max_exclusive": "2.7.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": false,
+    "status": "approved",
+    "claims": [
+      {
+        "action": "validate_jwks",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-060.md"
+  },
+  {
+    "id": "RB-070",
+    "title": "Withdrawn immediate restart",
+    "revision": 1,
+    "service": "identity-service",
+    "environment": "production",
+    "version_min": "2.4.0",
+    "version_max_exclusive": "2.5.0",
+    "key_rotation_enabled": true,
+    "allowed_roles": [
+      "platform",
+      "security"
+    ],
+    "metadata_verified": true,
+    "status": "revoked",
+    "claims": [
+      {
+        "action": "restart_all_pods",
+        "rule": "must"
+      }
+    ],
+    "path": "datasets/northstar/RB-070.md"
+  }
+]
