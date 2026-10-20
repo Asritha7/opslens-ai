@@ -68,6 +68,59 @@ class DatabaseTests(unittest.TestCase):
                         if record['role'] != 'security':
                             self.assertNotIn('SEC-021', response.text)
 
+    def test_revision_http_history_and_current_permission_revocation(self):
+        import tempfile
+        from pathlib import Path
+        from fastapi.testclient import TestClient
+        from opslens.api import create_app, initialize_keys, read_keys
+        from opslens.database import ingest, load_authorized_revision, prepare
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'keys.json'
+            initialize_keys(path)
+            headers = {r['role']: {'Authorization': 'Bearer ' + r['token']} for r in read_keys(path)}
+            loader = lambda role, doc, rev: load_authorized_revision(role, doc, rev, dbname=self.dbname)
+            with TestClient(create_app(key_file=path, revision_loader=loader)) as client:
+                url = '/v1/documents/RB-042/revisions/'
+                original = client.get(url + '1', headers=headers['platform'])
+                self.assertEqual(original.status_code, 200)
+                record = original.json()
+                prepared = prepare([self.docs[1]])[0]
+                self.assertEqual(record['content'], prepared[2])
+                self.assertEqual(record['checksum'], prepared[3])
+                self.assertEqual(record['title'], self.docs[1]['title'])
+                self.assertTrue(record['is_current'])
+                hidden = client.get(url + '1', headers=headers['intern'])
+                missing = client.get('/v1/documents/RB-999/revisions/1', headers=headers['intern'])
+                absent_revision = client.get(url + '99', headers=headers['platform'])
+                self.assertEqual(hidden.status_code, 404)
+                self.assertEqual(missing.status_code, 404)
+                self.assertEqual(absent_revision.status_code, 404)
+                self.assertEqual(hidden.json(), missing.json())
+                self.assertEqual(hidden.json(), absent_revision.json())
+                self.assertEqual(client.get('/v1/documents/SEC-021/revisions/1', headers=headers['security']).status_code, 200)
+                self.assertEqual(client.get('/v1/documents/SEC-021/revisions/1', headers=headers['platform']).status_code, 404)
+                newer = copy.deepcopy(self.docs[1])
+                newer.update(revision=2, title='Reviewed revision two')
+                ingest([newer], dbname=self.dbname)
+                old = client.get(url + '1', headers=headers['platform']).json()
+                self.assertEqual(old['content'], record['content'])
+                self.assertEqual(old['checksum'], record['checksum'])
+                self.assertFalse(old['is_current'])
+                self.assertEqual(old['current_revision'], 2)
+                self.assertEqual(client.get(url + '2', headers=headers['platform']).json()['title'], newer['title'])
+                newer['allowed_roles'] = ['security']
+                ingest([newer], dbname=self.dbname)
+                for rev in ('1', '2'):
+                    self.assertEqual(client.get(url + rev, headers=headers['platform']).status_code, 404)
+                    self.assertEqual(client.get(url + rev, headers=headers['security']).status_code, 200)
+                newer.update(revision=3, status='revoked')
+                ingest([newer], dbname=self.dbname)
+                for role_headers in headers.values():
+                    for rev in ('1', '2', '3'):
+                        response = client.get(url + rev, headers=role_headers)
+                        self.assertEqual(response.status_code, 404)
+                        self.assertEqual(response.json(), missing.json())
+
     def test_repeat_ingestion_is_noop(self):
         from opslens.database import ingest
         self.assertEqual(ingest(self.docs, dbname=self.dbname)['versions_inserted'], 0)
@@ -139,6 +192,17 @@ class DatabaseTests(unittest.TestCase):
 
 
 class CatalogValidationTests(unittest.TestCase):
+    def test_revision_reader_rejects_admin_or_invalid_inputs(self):
+        from unittest.mock import patch
+        from opslens.database import load_authorized_revision
+        with patch('opslens.database.connect') as connect:
+            for role, doc, rev in ((None, 'RB-042', 1), ('admin', 'RB-042', 1),
+                                   ('platform', "RB-042' OR true", 1), ('platform', 'RB-042', True),
+                                   ('platform', 'RB-042', 0), ('platform', 'RB-042', 2147483648)):
+                with self.subTest(role=role, doc=doc, rev=rev), self.assertRaises(ValueError):
+                    load_authorized_revision(role, doc, rev)
+            connect.assert_not_called()
+
     def test_reject_invalid_catalog_before_ingestion(self):
         from opslens.database import prepare
         for updates in ({'path': '../../.env'}, {'revision': 0}, {'revision': True},
