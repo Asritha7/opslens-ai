@@ -45,7 +45,7 @@ The CLI defaults to local files. After the database setup below, `--source datab
 
 CLI roles remain explicit test inputs. The local HTTP API authenticates bearer keys and derives the reader role from an owner-only server configuration; callers cannot supply their own role. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. The three demo keys map to named demo identities, not verified human accounts. OIDC and user registration are not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
 
-Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; claim-level span validation and an authorized citation-content endpoint are still future work. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
+Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; authorized revision-content retrieval is available through the API; claim-level span validation remains future work. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
 
 Tests are development regression checks, not a held-out benchmark or a security guarantee. No paid service is used.
 
@@ -95,3 +95,9 @@ Missing, invalid, or ambiguous values are flagged rather than guessed. Every pro
 Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. No browser interface or exact conflict-passage citations are added here.
 
 See [metadata proposals and result explanations](docs/metadata-proposals.md) for the supported format, review workflow, and response contract.
+
+## Read supporting document revisions
+
+Authenticated clients can call `GET /v1/documents/{document_id}/revisions/{revision}` to retrieve stored Markdown, title, checksum, and current-revision information. The database enforces current permissions for historical revisions too. Missing documents, missing revisions, and inaccessible revisions return the same 404 response. Reading a document does not mean it is recommended for the current situation.
+
+See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). Exact supporting passages and a document viewer are still future work.

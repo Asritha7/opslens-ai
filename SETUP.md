@@ -162,3 +162,23 @@ docker compose stop db
 ```
 
 This keeps the named volume. Start it again with `docker compose up -d --wait db`. Do not delete the volume to clear logs or resolve an ordinary test failure.
+
+
+## Read a document revision
+
+With the API running, run this in another terminal from the repository root. It reads the local platform credential without printing it and requests revision 1 of RB-042:
+
+```sh
+.venv/bin/python - <<'PYTHON'
+import json
+from urllib.request import Request, urlopen
+from opslens.api import KEY_FILE, read_keys
+record = next(r for r in read_keys(KEY_FILE) if r['subject'] == 'demo-platform')
+request = Request('http://127.0.0.1:8000/v1/documents/RB-042/revisions/1',
+                  headers={'Authorization': 'Bearer ' + record['token']})
+with urlopen(request, timeout=10) as response:
+    print(json.dumps(json.load(response), indent=2))
+PYTHON
+```
+
+The response includes stored content, title, revision, checksum, and whether it is current. A missing or inaccessible document/revision gives the same 404 response. See [the API contract](docs/api.md#document-revision-retrieval) for historical-access rules and checksum semantics. This example only reads evidence and does not publish or modify documents.

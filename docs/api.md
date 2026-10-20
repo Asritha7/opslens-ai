@@ -9,6 +9,7 @@ Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:
 | `GET /health` | None | `{"status":"ok"}`; process liveness only |
 | `GET /v1/me` | Bearer key | `subject` and assigned `role` |
 | `POST /v1/select` | Bearer key | Selection result below |
+| `GET /v1/documents/{document_id}/revisions/{revision}` | Bearer key | Stored document revision under current access policy |
 
 Protected requests use `Authorization: Bearer <local-key>`. Use the supplied `opslens.client` command to avoid putting keys into shell history. The private key file is plaintext with owner-only permissions and is Git-ignored. Records map a unique subject and token to platform, security, or intern. The server reloads it per request; revocation applies to subsequent authentication, not already-running requests.
 
@@ -53,14 +54,36 @@ Review reasons are `metadata_unverified`, `missing_environment`, `missing_versio
 
 For example, a version-2.5.0 production query with key rotation enabled under the platform identity reports `disable_key_rotation` with `must` from RB-050 and `must_not` from RB-051. These are catalog rules, not direct source quotations. A version-2.4.0 query with unknown key rotation asks whether rotation is enabled. An intern production query reports insufficient evidence without identifying restricted documents.
 
-All result details are generated after access filtering. Paths are references, not download URLs. A future UI should display message/next steps and the appropriate question, review, or conflict details; no graphical interface exists yet.
+All result details are generated after access filtering. Paths are references, not download URLs; use the document ID and revision with the retrieval endpoint. A future UI should display message/next steps and the appropriate question, review, or conflict details; no graphical interface exists yet.
 
 ## Request and service errors
 
 | HTTP code | Meaning |
 |---|---|
 | 401 | Missing or invalid credentials; includes `WWW-Authenticate: Bearer` |
+| 404 | Document or revision missing, or inaccessible; identical generic response |
 | 422 | Invalid request fields or values |
 | 503 | Authentication configuration or evidence store unavailable |
 
 Handled errors return a generic `detail` string without echoing credentials, invalid input, or database source rows. Responses use `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. Database failure never falls back to unrestricted local files.
+
+
+## Document revision retrieval
+
+`GET /v1/documents/RB-042/revisions/1` requires the same bearer credential as selection. The document ID must match uppercase letters, a hyphen, and digits (`[A-Z]+-[0-9]+`). Revision must be an integer from 1 through 2147483647. Invalid path values return 422; valid requests with missing or inaccessible evidence return `404 {"detail":"Document revision not found"}`. No separate existence check uses administrator access.
+
+Successful JSON responses contain:
+
+| Field | Meaning |
+|---|---|
+| `document_id`, `revision` | Requested stored identity and revision |
+| `title` | Title saved with that revision |
+| `content` | Stored Markdown text, not a reread of the current source file |
+| `checksum` | Stored SHA-256 of content plus immutable metadata, using the ingestion serialization; not a content-only hash |
+| `current_revision` | Current revision number under the same authorized document |
+| `is_current` | Whether the requested revision is current |
+| `revision_status` | Status saved in that revision's metadata; not a current applicability decision |
+
+Current database permissions govern all revisions. Removing a role's access or revoking the current document blocks that role's old revisions as well. Historical approved text can remain readable while access is retained; it is not automatically a recommendation. Use selection to evaluate applicability. Policy changes affect subsequent database reads; already-returned content cannot be retracted.
+
+Content is returned as a JSON string with no-store/nosniff headers, never rendered as HTML. A future viewer must treat Markdown as untrusted content and sanitize any rendering. This endpoint does not provide exact supporting spans, downloads by filesystem path, or edits. Database failures return generic 503 responses without fallback to source files.
