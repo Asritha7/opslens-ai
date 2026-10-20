@@ -55,4 +55,6 @@ OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 
 Database integration tests create and remove a uniquely named `opslens_test_*` database. They never truncate the development database. Without the opt-in variable, integration tests are skipped; ordinary catalog and selector tests still run.
 
+GitHub Actions runs the full suite and a pgvector smoke check for pull requests targeting `main` and pushes to `main`. It uses a standard Linux runner and a disposable PostgreSQL service with CI-only credentials. No local `.env`, paid model API, or deployed database is used. Actions are pinned to commit hashes and Python dependencies are installed from `uv.lock`.
+
 This is synchronous local ingestion, not the future worker/job pipeline. The catalog is authoritative for permissions: reingesting its current revision reapplies its allowed roles. Removing a catalog entry does not delete or revoke a stored document; explicitly ingest a new revoked revision or change the current revision's permissions to an empty list. Older revisions cannot replace a newer current revision or its permissions. Ingestion uses a single advisory lock suitable for this small corpus. Administrative access remains trusted and can bypass database protections; immutable-row triggers are not tamper-proof storage.
