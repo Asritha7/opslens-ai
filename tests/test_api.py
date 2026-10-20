@@ -103,6 +103,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {'detail': 'Evidence store unavailable'})
 
+    def test_response_exposes_user_messages_questions_and_conflicts(self):
+        missing = self.client.post('/v1/select', json=dict(QUERY, key_rotation_enabled=None), headers=self.headers()).json()
+        self.assertEqual(missing['questions'][0]['field'], 'key_rotation_enabled')
+        self.assertTrue(missing['message'])
+        conflict = self.client.post('/v1/select', json=dict(QUERY, software_version='2.5.0'), headers=self.headers()).json()
+        self.assertEqual(conflict['conflict_details'][0]['action'], 'disable_key_rotation')
+        self.assertEqual(conflict['recommended_documents'], [])
+
     def test_health_is_liveness_only(self):
         self.assertEqual(self.client.get('/health').json(), {'status': 'ok'})
         self.loader.assert_not_called()
