@@ -71,3 +71,17 @@ The next layer is a loopback-only FastAPI service. `POST /v1/select` accepts ser
 ```
 
 The operator client reads the selected key from `.local/api-keys.json` and sends it in the Authorization header; the persona is not sent as a request field. The operator holds all demo keys and can try all personas. Keys are random, stored owner-only, excluded from Git, and never printed by setup. See `SETUP.md` for revocation and limitations. No paid authentication provider is used.
+
+## Metadata proposals and actionable results
+
+A local extractor now reads explicit Markdown applicability fields and produces reviewable metadata with source-line provenance. Try:
+
+```sh
+.venv/bin/python -m opslens.extraction docs/runbook-template.md
+```
+
+Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Existing source revisions are unchanged.
+
+Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. No browser interface or exact conflict-passage citations are added here.
+
+See [metadata proposals and result explanations](docs/metadata-proposals.md) for the supported format, review workflow, and response contract.
