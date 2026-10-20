@@ -29,6 +29,12 @@ class ExtractionTests(unittest.TestCase):
             for entry in entries:
                 self.assertEqual(SOURCE.splitlines()[entry['line'] - 1], entry['quote'])
 
+    def test_ambiguous_titles_keep_review_evidence(self):
+        result = extract(SOURCE + '\n# Another title\n')
+        self.assertNotIn('title', result['proposed_metadata'])
+        self.assertEqual(len(result['provenance']['title']), 2)
+        self.assertIn({'field': 'title', 'reason': 'missing_or_ambiguous'}, result['issues'])
+
     def test_prose_is_not_guessed(self):
         result = extract('# Runbook\nMaybe production for 2.4? Rotation might be on.')
         self.assertEqual(result['proposed_metadata'], {'title': 'Runbook'})

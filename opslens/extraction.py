@@ -62,11 +62,10 @@ def extract(text):
             candidates[match[1]].append({'raw': match[2], 'line': number, 'quote': line})
 
     metadata = {}
-    provenance = {}
+    provenance = {"title": title_candidates}
     issues = []
     if len(title_candidates) == 1 and title_candidates[0]['value']:
         metadata['title'] = title_candidates[0]['value']
-        provenance['title'] = [title_candidates[0]]
     else:
         issues.append({'field': 'title', 'reason': 'missing_or_ambiguous'})
     for field, entries in candidates.items():
