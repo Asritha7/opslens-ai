@@ -28,6 +28,7 @@ def select(documents, *, role, service, software_version, environment,
     if key_rotation_enabled is not None and type(key_rotation_enabled) is not bool:
         raise ValueError("key_rotation_enabled must be true, false, or unknown")
     matches, uncertain = [], []
+    questions, review_items = [], []
     # Authorization filtering precedes metadata inspection and all returned explanations.
     for doc in documents:
         if role not in doc["allowed_roles"]:
@@ -47,18 +48,63 @@ def select(documents, *, role, service, software_version, environment,
                 or doc["version_min"] is None or doc["version_max_exclusive"] is None
                 or (required is not None and key_rotation_enabled is None)):
             uncertain.append(doc["id"])
+            reference = {"document_id": doc["id"], "title": doc["title"],
+                         "revision": doc["revision"], "path": doc["path"]}
+            reasons = []
+            if not doc["metadata_verified"]:
+                reasons.append("metadata_unverified")
+            for field in ("environment", "version_min", "version_max_exclusive"):
+                if doc[field] is None:
+                    reasons.append("missing_" + field)
+            if reasons:
+                review_items.append(dict(reference, reasons=reasons))
+            if required is not None and key_rotation_enabled is None:
+                if not questions:
+                    questions.append({"field": "key_rotation_enabled",
+                                      "question": "Is key rotation enabled in the affected service?",
+                                      "allowed_answers": [True, False]})
             continue
         matches.append(doc)
 
-    conflicts = []
+    conflicts, conflict_details = [], []
     for i, left in enumerate(matches):
         for right in matches[i + 1:]:
-            if any(a["action"] == b["action"] and {a["rule"], b["rule"]} == {"must", "must_not"}
-                   for a in left["claims"] for b in right["claims"]):
+            opposing = sorted({a["action"] for a in left["claims"] for b in right["claims"]
+                               if a["action"] == b["action"] and {a["rule"], b["rule"]} == {"must", "must_not"}})
+            if opposing:
                 conflicts.append([left["id"], right["id"]])
+                for action in opposing:
+                    conflict_details.append({"action": action, "basis": "catalog_rules",
+                        "documents": [{"document_id": d["id"], "title": d["title"],
+                                       "revision": d["revision"], "path": d["path"],
+                                       "rules": sorted({c["rule"] for c in d["claims"] if c["action"] == action})}
+                                      for d in (left, right)],
+                        "explanation": f"Applicable documents require and forbid the same action: {action}."})
     status = "conflict" if conflicts else "needs_context_or_review" if uncertain else "selected" if matches else "insufficient_evidence"
+    messages = {
+        "selected": "Found approved guidance applicable to the supplied context.",
+        "conflict": "Applicable documents disagree. No recommendation is available until the conflict is reviewed.",
+        "needs_context_or_review": "More context or metadata review is required before guidance can be recommended.",
+        "insufficient_evidence": "Could not find enough approved guidance you can access for the supplied context.",
+    }
+    next_steps = []
+    if conflicts:
+        next_steps.append("Ask an authorized document owner to resolve the opposing instructions.")
+    if questions:
+        next_steps.append("Answer the follow-up question and submit the request again.")
+    if review_items:
+        next_steps.append("Ask an authorized reviewer to verify the listed document metadata.")
+    if status == "selected":
+        next_steps.append("Read the supporting documents and follow their approval requirements before acting.")
+    if status == "insufficient_evidence":
+        next_steps.append("Check the service, version, environment and prerequisites, or request an approved source.")
     return {
         "status": status,
+        "message": messages[status],
+        "next_steps": next_steps,
+        "questions": questions,
+        "review_items": review_items,
+        "conflict_details": conflict_details,
         "applicable_documents": [d["id"] for d in matches],
         "uncertain_documents": uncertain,
         "conflicts": conflicts,

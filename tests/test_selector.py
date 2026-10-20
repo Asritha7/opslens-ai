@@ -19,6 +19,45 @@ class SelectorTests(unittest.TestCase):
         self.assertEqual(result["status"], "selected")
         self.assertEqual(result["recommended_documents"], ["RB-042", "RB-043"])
 
+    def test_explains_conflicting_rules_with_authorized_references(self):
+        result = self.query(software_version="2.5.0")
+        detail = result["conflict_details"][0]
+        self.assertEqual(detail["action"], "disable_key_rotation")
+        self.assertEqual(detail["basis"], "catalog_rules")
+        self.assertEqual([d["rules"] for d in detail["documents"]], [["must"], ["must_not"]])
+        self.assertEqual([d["document_id"] for d in detail["documents"]], ["RB-050", "RB-051"])
+        self.assertTrue(result["message"])
+        self.assertTrue(result["next_steps"])
+
+    def test_missing_context_asks_one_actionable_question(self):
+        result = self.query(key_rotation_enabled=None)
+        self.assertEqual(len(result["questions"]), 1)
+        self.assertEqual(result["questions"][0]["field"], "key_rotation_enabled")
+        self.assertEqual(result["review_items"], [])
+
+    def test_review_distinguished_from_missing_user_context(self):
+        result = self.query(software_version="2.6.0")
+        self.assertEqual(result["questions"], [])
+        self.assertEqual(result["review_items"][0]["reasons"], ["metadata_unverified", "missing_environment"])
+        both = self.query(software_version="2.6.0", key_rotation_enabled=None)
+        self.assertTrue(both["questions"])
+        self.assertTrue(both["review_items"])
+
+    def test_insufficient_evidence_does_not_disclose_hidden_documents(self):
+        result = self.query(role="intern")
+        self.assertIn("you can access", result["message"])
+        self.assertEqual(result["review_items"], [])
+        self.assertEqual(result["conflict_details"], [])
+        self.assertEqual(result["questions"], [])
+        self.assertNotIn("RB-042", json.dumps(result))
+
+    def test_hidden_uncertainty_cannot_leak_into_explanations(self):
+        before = self.query(key_rotation_enabled=None)
+        hidden = copy.deepcopy(self.docs[4])
+        hidden.update(metadata_verified=False, environment=None)
+        self.docs.append(hidden)
+        self.assertEqual(before, self.query(key_rotation_enabled=None))
+
     def test_old_version(self):
         self.assertEqual(self.query(software_version="2.1.0")["recommended_documents"], ["RB-017"])
 
