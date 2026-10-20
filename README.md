@@ -2,9 +2,19 @@
 
 Select applicable fictional operational guidance using explicit metadata, before adding AI generation.
 
+## Documentation
+
+- [Setup and local commands](SETUP.md)
+- [Architecture and current scope](docs/architecture.md)
+- [API request and response contract](docs/api.md)
+- [Metadata extraction and review](docs/metadata-proposals.md)
+- [Runbook authoring template](docs/runbook-template.md)
+- [Tests, CI, and troubleshooting](docs/testing.md)
+- [Contribution safeguards](AGENTS.md)
+
 ## Run the first demonstration
 
-From this directory:
+After completing [Python setup](SETUP.md), run from the repository root:
 
 ```sh
 ./uv-local sync --frozen
@@ -61,7 +71,7 @@ This is synchronous local ingestion, not the future worker/job pipeline. The cat
 
 ## Authenticated local API
 
-The next layer is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A bearer key determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
+The implemented API is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A bearer key determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
 
 ```sh
 .venv/bin/python -m opslens.api init-keys  # once; refuses to overwrite existing keys

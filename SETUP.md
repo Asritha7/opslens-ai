@@ -1,13 +1,15 @@
 # OpsLens local development setup
 
 The project has an isolated uv installation, managed Python runtime, and virtual environment.
-No shell-profile changes or system Python replacements were made.
+The commands below keep project tooling inside the repository and do not require replacing macOS system Python. Any separately installed user-level Python is independent of this project.
 
 - uv: 0.13.1, installed from Astral's official installer
 - Python: 3.12.15, downloaded by uv
 - Architecture: macOS ARM64
 
-From this directory:
+Run commands from the repository root. On a fresh clone, complete “Reproduce the Python setup” first.
+
+For an existing installation:
 
 ```sh
 ./uv-local --version
@@ -48,12 +50,11 @@ Run these commands from this project directory in Terminal:
 ```sh
 docker compose up -d --wait db   # Start database and wait until ready
 docker compose ps              # Check its status
-docker compose stop db         # Stop it; keep saved data
 ```
 
 Connection: host `127.0.0.1`, port `55432`, database `opslens`, bootstrap administrator `opslens_admin`.
 The random password is in `.env` (owner-readable only, excluded from Git).
-Use a separate restricted application role when implementing the backend; the bootstrap administrator must not be used for permission-enforced retrieval.
+The implemented database selector and API use separate restricted reader accounts. The bootstrap administrator is used for setup, ingestion, and disposable test-database administration, never permission-enforced retrieval.
 
 The named Docker volume `opslens-local_postgres_data` preserves data when the container stops or is recreated. It is not a backup. Do not use `docker compose down -v` unless intentionally erasing this project's database.
 
@@ -79,13 +80,14 @@ p.write_text(text)
 p.chmod(0o600)
 PY
 
+docker compose up -d --wait db
 .venv/bin/python -m opslens.database bootstrap
 .venv/bin/python -m opslens.database ingest
 ```
 
 Bootstrap creates three non-superuser, read-only reader accounts and applies the numbered schema migration transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
 
-The admin credential is used only for setup and ingestion. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
+The admin credential is used for setup, ingestion, and test-database administration. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
 
 ```sh
 .venv/bin/python -m opslens.selector --source database --role intern --version 2.4.0 --environment production --key-rotation true
@@ -130,3 +132,33 @@ To revoke an individual key, remove its record from the private JSON file while 
 This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, OIDC, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
 
 Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
+
+
+## Extract and review metadata
+
+```sh
+.venv/bin/python -m opslens.extraction docs/runbook-template.md
+```
+
+This command needs neither PostgreSQL nor API credentials. It prints a proposal with source lines and a fingerprint, flags missing/ambiguous values, and never publishes it. Review is mandatory. Existing prose-only fixtures do not contain the structured fields and will report missing metadata. Follow [the extraction and review guide](docs/metadata-proposals.md) before transferring reviewed values into the catalog.
+
+## Exercise all result states
+
+With the database running and ingested, these additional requests demonstrate a follow-up question and a metadata-review requirement:
+
+```sh
+.venv/bin/python -m opslens.selector --source database --role platform --version 2.4.0 --environment production --key-rotation unknown
+.venv/bin/python -m opslens.selector --source database --role platform --version 2.6.0 --environment production --key-rotation true
+```
+
+Results include messages, next steps, questions, review items, and conflict details. See [the API contract](docs/api.md) for fields and status meanings, and [testing and troubleshooting](docs/testing.md) for expected database logs.
+
+## Stop local services
+
+Stop the API with Ctrl+C in its terminal. When finished with database work:
+
+```sh
+docker compose stop db
+```
+
+This keeps the named volume. Start it again with `docker compose up -d --wait db`. Do not delete the volume to clear logs or resolve an ordinary test failure.

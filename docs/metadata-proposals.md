@@ -1,5 +1,7 @@
 # Metadata proposals and result explanations
 
+See also [setup](../SETUP.md), [the API contract](api.md), and [the authoring template](runbook-template.md).
+
 ## Extraction contract
 
 Run `.venv/bin/python -m opslens.extraction docs/runbook-template.md` to propose metadata from a UTF-8 Markdown file (maximum 1 MB). This trusted local operator command does not call the database, use an API key, call a model, or publish anything. Its output can contain source passages; keep output as private as the input document.
@@ -56,3 +58,13 @@ For an unknown key-rotation setting, one question asks whether it is enabled. Mi
 Conflict details explicitly use `basis: catalog_rules`. They describe manually normalized claims, not verbatim procedure quotes or automatically interpreted contradictions. Source-text span citations and an authorized document-content endpoint remain future work. References must not be rendered as if the normalized rule text were a direct quotation.
 
 Insufficient-evidence messages say that suitable guidance the caller can access was not found. They do not reveal whether inaccessible documents exist. All explanations are constructed after role filtering. The CLI displays these fields as JSON; a graphical interface is not yet implemented.
+
+
+```mermaid
+flowchart LR
+    Source["Markdown applicability fields"] --> Extract["Proposed values and source lines"]
+    Extract --> Review["Trusted operator review"]
+    Policy["Trusted permissions and approval"] --> Review
+    Review --> Catalog["Manual catalog update"]
+    Catalog --> Ingest["Transactional ingestion"]
+```
