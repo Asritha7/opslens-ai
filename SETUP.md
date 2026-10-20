@@ -93,3 +93,40 @@ OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
 The test command requires the local admin credential to create and remove its own disposable database. Reader-account names are shared with the development database, but existing role passwords are not altered. Tests use the same credentials; all test documents live in the disposable database.
+
+
+## Local authenticated API
+
+First complete database bootstrap and ingestion above. Install locked dependencies with `./uv-local sync --frozen`, then:
+
+```sh
+.venv/bin/python -m opslens.api init-keys
+.venv/bin/python -m opslens.api serve
+```
+
+`init-keys` creates three random demo credentials in `.local/api-keys.json` with file mode 600 (only your OS account can read/write). It never overwrites an existing file or prints tokens. The `.local/` directory is Git-ignored. Do not paste this file into issues, screenshots, commits, or chat.
+
+The server binds only to `127.0.0.1:8000`. If that port is already in use, it exits; stop or inspect your own conflicting process rather than terminating unrelated software. Stop this server with Ctrl+C. It does not install an auto-start service. Access logging is disabled, proxy headers are not trusted, and no browser docs/CDN or CORS access is enabled.
+
+From another terminal in this repository, try:
+
+```sh
+.venv/bin/python -m opslens.client --persona platform --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m opslens.client --persona platform --version 2.5.0 --environment production --key-rotation true
+.venv/bin/python -m opslens.client --persona intern --version 2.4.0 --environment production --key-rotation true
+```
+
+Expected: selected RB-042/RB-043; a conflict with no recommendation; insufficient authorized evidence. Use `--environment staging` with the intern key to retrieve its staging runbook. The client reads the secret internally; it never puts the token in shell arguments or output.
+
+API contract:
+
+- `GET /health`: public liveness response; does not promise database readiness.
+- `GET /v1/me`: bearer authentication required; returns demo subject and role.
+- `POST /v1/select`: bearer authentication required. JSON fields: `service` (nonempty identifier), `software_version` (exact numeric X.Y.Z), `environment` (`production` or `staging`), optional `key_rotation_enabled` (boolean or null). Extra fields, including `role`, are rejected. Responses retain the existing selection statuses and evidence references.
+- 401: missing or invalid key. 422: invalid input. 503: credential configuration or database unavailable. Errors do not echo request values or database details. Responses use `Cache-Control: no-store`.
+
+To revoke an individual key, remove its record from the private JSON file while preserving mode 600; new requests reload the file, so no restart is needed. Requests already authenticated may finish. To rotate a key, replace its token locally with `secrets.token_urlsafe(32)` and update the client that holds it. Never reuse database passwords as API tokens. An empty, malformed, missing, duplicate-identity, or overly readable credential file fails closed. There is no default/fallback key.
+
+This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, OIDC, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
+
+Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
