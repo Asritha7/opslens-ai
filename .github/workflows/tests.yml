@@ -1,0 +1,73 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Selector and PostgreSQL tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+        env:
+          POSTGRES_USER: opslens_admin
+          POSTGRES_DB: opslens
+          # Disposable CI service only; never used by local or deployed databases.
+          POSTGRES_PASSWORD: opslens-ci-only
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U opslens_admin -d opslens"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      POSTGRES_PASSWORD: opslens-ci-only
+      OPSLENS_TEST_DATABASE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12.15"
+      - name: Install locked dependencies
+        run: |
+          python -m pip install uv==0.13.1
+          uv sync --frozen
+      - name: Generate disposable reader passwords
+        run: |
+          python - <<'PY'
+          import os
+          import secrets
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              for role in ('PLATFORM', 'SECURITY', 'INTERN'):
+                  env.write(f'READER_{role}_PASSWORD={secrets.token_urlsafe(32)}\n')
+          PY
+      - name: Verify pgvector
+        run: |
+          .venv/bin/python - <<'PY'
+          from opslens.database import connect
+          with connect() as conn:
+              conn.execute('CREATE EXTENSION IF NOT EXISTS vector')
+              distance = conn.execute("SELECT '[1,0,0]'::vector <-> '[1,0,0]'::vector").fetchone()[0]
+              assert distance == 0
+          print('pgvector smoke check passed')
+          PY
+      - name: Run unit and database integration tests
+        run: .venv/bin/python -m unittest discover -s tests -v

@@ -70,13 +70,23 @@ def select(documents, *, role, service, software_version, environment,
 def main():
     parser = argparse.ArgumentParser(description="Select fictional runbooks using explicit metadata; no AI calls.")
     parser.add_argument("--role", required=True, choices=sorted(ROLES))
+    parser.add_argument("--source", choices=["files", "database"], default="files")
     parser.add_argument("--service", default="identity-service")
     parser.add_argument("--version", required=True)
     parser.add_argument("--environment", required=True, choices=["production", "staging"])
     parser.add_argument("--key-rotation", choices=["true", "false", "unknown"], default="unknown")
     args = parser.parse_args()
     try:
-        result = select(load_documents(), role=args.role, service=args.service,
+        if args.source == "database":
+            import psycopg
+            from opslens.database import load_authorized_documents
+            try:
+                documents = load_authorized_documents(args.role)
+            except psycopg.Error:
+                parser.exit(1, "Database unavailable or not initialized; check SETUP.md.\n")
+        else:
+            documents = load_documents()
+        result = select(documents, role=args.role, service=args.service,
                         software_version=args.version, environment=args.environment,
                         key_rotation_enabled={"true": True, "false": False, "unknown": None}[args.key_rotation])
     except ValueError as exc:
