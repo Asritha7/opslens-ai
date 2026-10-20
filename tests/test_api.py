@@ -24,7 +24,8 @@ class ApiTests(unittest.TestCase):
         initialize_keys(self.path)
         self.records = read_keys(self.path)
         self.loader = Mock(return_value=load_documents())
-        self.client = TestClient(create_app(key_file=self.path, document_loader=self.loader))
+        self.revision_loader = Mock(return_value=None)
+        self.client = TestClient(create_app(key_file=self.path, document_loader=self.loader, revision_loader=self.revision_loader))
         self.addCleanup(self.client.close)
 
     def headers(self, role='platform'):
@@ -110,6 +111,44 @@ class ApiTests(unittest.TestCase):
         conflict = self.client.post('/v1/select', json=dict(QUERY, software_version='2.5.0'), headers=self.headers()).json()
         self.assertEqual(conflict['conflict_details'][0]['action'], 'disable_key_rotation')
         self.assertEqual(conflict['recommended_documents'], [])
+
+    def test_revision_requires_authentication_before_loading(self):
+        for headers in ({}, {'Authorization': 'Bearer invalid'}):
+            response = self.client.get('/v1/documents/RB-042/revisions/1', headers=headers)
+            self.assertEqual(response.status_code, 401)
+        self.revision_loader.assert_not_called()
+
+    def test_revision_uses_authenticated_role_and_disables_caching(self):
+        record = {'document_id': 'RB-044', 'revision': 1, 'title': 'Staging',
+                  'content': '<script>untrusted source</script>', 'checksum': 'abc',
+                  'current_revision': 1, 'is_current': True, 'revision_status': 'approved'}
+        self.revision_loader.return_value = record
+        response = self.client.get('/v1/documents/RB-044/revisions/1', headers=self.headers('intern'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), record)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        self.assertEqual(response.headers['x-content-type-options'], 'nosniff')
+        self.assertIn('application/json', response.headers['content-type'])
+        self.revision_loader.assert_called_once_with('intern', 'RB-044', 1)
+
+    def test_revision_not_found_response_is_generic(self):
+        for path in ('SEC-021/revisions/1', 'RB-999/revisions/1', 'RB-042/revisions/99'):
+            response = self.client.get('/v1/documents/' + path, headers=self.headers())
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(response.json(), {'detail': 'Document revision not found'})
+
+    def test_revision_invalid_identifiers_rejected_before_loading(self):
+        for path in ('bad/revisions/1', 'RB-042/revisions/0', 'RB-042/revisions/-1',
+                     'RB-042/revisions/2147483648', 'RB-042/revisions/not-a-number'):
+            response = self.client.get('/v1/documents/' + path, headers=self.headers())
+            self.assertEqual(response.status_code, 422)
+        self.revision_loader.assert_not_called()
+
+    def test_revision_store_errors_are_sanitized(self):
+        self.revision_loader.side_effect = psycopg.OperationalError('restricted source and password')
+        response = self.client.get('/v1/documents/RB-042/revisions/1', headers=self.headers())
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {'detail': 'Evidence store unavailable'})
 
     def test_health_is_liveness_only(self):
         self.assertEqual(self.client.get('/health').json(), {'status': 'ok'})

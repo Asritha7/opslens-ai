@@ -55,7 +55,7 @@ The API and both CLI paths retain existing status, recommendation, conflict-ID, 
 
 For an unknown key-rotation setting, one question asks whether it is enabled. Missing document metadata is separately listed for review. Both may appear together. Conflict remains the highest-priority overall status if applicable documents disagree; other outstanding questions and reviews are still returned.
 
-Conflict details explicitly use `basis: catalog_rules`. They describe manually normalized claims, not verbatim procedure quotes or automatically interpreted contradictions. Source-text span citations and an authorized document-content endpoint remain future work. References must not be rendered as if the normalized rule text were a direct quotation.
+Conflict details explicitly use `basis: catalog_rules`. They describe manually normalized claims, not verbatim procedure quotes or automatically interpreted contradictions. Authorized document content is available through the revision endpoint described in [the API contract](api.md#document-revision-retrieval). Exact source-text span citations remain future work. References must not be rendered as if the normalized rule text were a direct quotation.
 
 Insufficient-evidence messages say that suitable guidance the caller can access was not found. They do not reveal whether inaccessible documents exist. All explanations are constructed after role filtering. The CLI displays these fields as JSON; a graphical interface is not yet implemented.
 

@@ -155,6 +155,30 @@ def load_authorized_documents(role, *, dbname='opslens'):
     return [dict(metadata, allowed_roles=roles) for metadata, roles in rows]
 
 
+
+def load_authorized_revision(role, document_id, revision, *, dbname='opslens'):
+    """Read stored evidence through current RLS policy, including historical versions."""
+    if role not in ROLES:
+        raise ValueError('Unknown reader role')
+    if not isinstance(document_id, str) or not re.fullmatch(r'[A-Z]+-[0-9]+', document_id):
+        raise ValueError('Invalid document ID')
+    if type(revision) is not int or not 1 <= revision <= 2147483647:
+        raise ValueError('Invalid revision')
+    with connect(role=role, dbname=dbname) as conn:
+        row = conn.execute("""SELECT v.metadata, v.content, v.checksum, d.current_revision
+                              FROM opslens.document_versions v
+                              JOIN opslens.documents d ON d.id=v.document_id
+                              WHERE v.document_id=%s AND v.revision=%s""",
+                           (document_id, revision)).fetchone()
+    if row is None:
+        return None
+    metadata, content, checksum, current_revision = row
+    return {'document_id': document_id, 'revision': revision,
+            'title': metadata['title'], 'content': content, 'checksum': checksum,
+            'current_revision': current_revision, 'is_current': revision == current_revision,
+            'revision_status': metadata['status']}
+
+
 def main():
     parser = argparse.ArgumentParser(description='Manage the local OpsLens database')
     parser.add_argument('command', choices=['bootstrap', 'ingest'])

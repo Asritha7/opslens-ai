@@ -10,6 +10,8 @@ flowchart TD
     Keys["Private demo keys"] --> API
     API -->|"Assigned reader account"| DB
     DB -->|"Authorized current metadata"| API
+    API -->|"Requested revision via reader account"| Evidence["Stored Markdown and revision metadata"]
+    Evidence --> Client
     API --> Selector["Applicability and conflict rules"]
     Selector --> Result["Status, evidence references and explanations"]
     Result --> Client
@@ -36,8 +38,8 @@ Extraction reads explicit Markdown fields and proposes values with provenance. I
 
 ## Implemented and remaining
 
-Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, automated tests, and required CI.
+Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, authorized historical document retrieval, automated tests, and required CI.
 
-Remaining: browser UI, verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, exact conflict-passage citations, authorized document-content retrieval, saved answers/audit history, background workers, and live service context. Current evidence references identify document IDs, revisions, and paths rather than exact supporting text spans.
+Remaining: browser UI, verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, exact conflict-passage citations, saved answers/audit history, background workers, and live service context. Current evidence references identify document IDs, revisions, and paths rather than exact supporting text spans.
 
 See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), and [testing](testing.md).

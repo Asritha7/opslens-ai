@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Literal
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Path as ApiPath
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from opslens.database import load_authorized_documents
+from opslens.database import load_authorized_documents, load_authorized_revision
 from opslens.selector import ROOT, ROLES, select
 
 KEY_FILE = ROOT / '.local/api-keys.json'
@@ -63,7 +63,8 @@ class SelectionRequest(BaseModel):
     key_rotation_enabled: StrictBool | None = None
 
 
-def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents):
+def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
+               revision_loader=load_authorized_revision):
     app = FastAPI(title='OpsLens local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
 
@@ -111,6 +112,19 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents):
         except (psycopg.Error, ValueError, OSError):
             raise HTTPException(503, 'Evidence store unavailable') from None
         return select(documents, role=principal['role'], **query.model_dump())
+
+    @app.get('/v1/documents/{document_id}/revisions/{revision}')
+    def document_revision(document_id: str = ApiPath(pattern=r'^[A-Z]+-[0-9]+$'),
+                          revision: int = ApiPath(ge=1, le=2147483647),
+                          principal=Depends(identity)):
+        try:
+            evidence = revision_loader(principal['role'], document_id, revision)
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Evidence store unavailable') from None
+        if evidence is None:
+            # Identical response for missing documents, missing revisions, and denied access.
+            raise HTTPException(404, 'Document revision not found')
+        return evidence
 
     return app
 
