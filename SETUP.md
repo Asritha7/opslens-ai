@@ -30,6 +30,7 @@ Install uv from Astral's official installer into `.tools/bin`, without modifying
 curl -LsSf https://astral.sh/uv/0.13.1/install.sh -o /tmp/opslens-uv-install.sh
 UV_UNMANAGED_INSTALL="$PWD/.tools/bin" sh /tmp/opslens-uv-install.sh
 ./uv-local venv --python 3.12.15 --managed-python .venv
+./uv-local sync --frozen
 ```
 
 The existing Node.js, system Python, and shell configuration are not managed by this repository.
@@ -58,3 +59,37 @@ The named Docker volume `opslens-local_postgres_data` preserves data when the co
 
 The database publishes only on localhost, has a 1 GB container memory limit and a 2-CPU limit, and does not automatically restart. Docker Desktop itself consumes additional resources.
 No cloud account or paid API is involved.
+
+## Database schema, ingestion, and restricted readers
+
+Install the locked Python dependencies with `./uv-local sync --frozen`.
+Generate separate local passwords for each test persona. This preserves existing values:
+
+```sh
+.venv/bin/python - <<'PY'
+from pathlib import Path
+import secrets
+p = Path('.env')
+text = p.read_text()
+for role in ('PLATFORM', 'SECURITY', 'INTERN'):
+    key = f'READER_{role}_PASSWORD'
+    if not any(line.startswith(key + '=') for line in text.splitlines()):
+        text += '\n' + key + '=' + secrets.token_urlsafe(32) + '\n'
+p.write_text(text)
+p.chmod(0o600)
+PY
+
+.venv/bin/python -m opslens.database bootstrap
+.venv/bin/python -m opslens.database ingest
+```
+
+Bootstrap creates three non-superuser, read-only reader accounts and applies the numbered schema migration transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
+
+The admin credential is used only for setup and ingestion. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
+
+```sh
+.venv/bin/python -m opslens.selector --source database --role intern --version 2.4.0 --environment production --key-rotation true
+OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
+```
+
+The test command requires the local admin credential to create and remove its own disposable database. Reader-account names are shared with the development database, but existing role passwords are not altered. Tests use the same credentials; all test documents live in the disposable database.
