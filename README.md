@@ -33,7 +33,7 @@ Nine manually authored Markdown documents live in `datasets/northstar`. `catalog
 
 The CLI defaults to local files. After the database setup below, `--source database` reads the current stored revisions through separate read-only database accounts with row-level security. Ingestion validates the local catalog, saves Markdown content and metadata checksums, and publishes the whole batch in one transaction. Repeating the same revision adds no duplicate; changing its content or metadata requires a new revision. Permissions remain current policy and can change without rewriting historical evidence. A revoked document has no reader access, including to old revisions.
 
-Roles are explicit test inputs, not real user login. No API is exposed. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. OIDC and user-to-persona mapping are not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
+CLI roles remain explicit test inputs. The local HTTP API authenticates bearer keys and derives the reader role from an owner-only server configuration; callers cannot supply their own role. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. The three demo keys map to named demo identities, not verified human accounts. OIDC and user registration are not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
 
 Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; claim-level span validation and an authorized citation-content endpoint are still future work. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
 
@@ -58,3 +58,16 @@ Database integration tests create and remove a uniquely named `opslens_test_*` d
 GitHub Actions runs the full suite and a pgvector smoke check for pull requests targeting `main` and pushes to `main`. It uses a standard Linux runner and a disposable PostgreSQL service with CI-only credentials. No local `.env`, paid model API, or deployed database is used. Actions are pinned to commit hashes and Python dependencies are installed from `uv.lock`.
 
 This is synchronous local ingestion, not the future worker/job pipeline. The catalog is authoritative for permissions: reingesting its current revision reapplies its allowed roles. Removing a catalog entry does not delete or revoke a stored document; explicitly ingest a new revoked revision or change the current revision's permissions to an empty list. Older revisions cannot replace a newer current revision or its permissions. Ingestion uses a single advisory lock suitable for this small corpus. Administrative access remains trusted and can bypass database protections; immutable-row triggers are not tamper-proof storage.
+
+## Authenticated local API
+
+The next layer is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A bearer key determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
+
+```sh
+.venv/bin/python -m opslens.api init-keys  # once; refuses to overwrite existing keys
+.venv/bin/python -m opslens.api serve
+# In a second terminal, from this repository:
+.venv/bin/python -m opslens.client --persona platform --version 2.4.0 --environment production --key-rotation true
+```
+
+The operator client reads the selected key from `.local/api-keys.json` and sends it in the Authorization header; the persona is not sent as a request field. The operator holds all demo keys and can try all personas. Keys are random, stored owner-only, excluded from Git, and never printed by setup. See `SETUP.md` for revocation and limitations. No paid authentication provider is used.

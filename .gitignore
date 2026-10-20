@@ -15,3 +15,6 @@ __pycache__/
 node_modules/
 .next/
 .pytest_cache/
+
+# Local API credentials
+.local/

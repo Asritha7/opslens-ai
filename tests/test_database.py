@@ -46,6 +46,28 @@ class DatabaseTests(unittest.TestCase):
                                         environment=env, key_rotation_enabled=rotation)
                             self.assertEqual(select(self.docs, **args), select(load_authorized_documents(role, dbname=self.dbname), **args))
 
+    def test_authenticated_http_uses_real_database_roles(self):
+        import tempfile
+        from pathlib import Path
+        from fastapi.testclient import TestClient
+        from opslens.api import create_app, initialize_keys, read_keys
+        from opslens.database import load_authorized_documents
+        from test_api import QUERY
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'keys.json'
+            initialize_keys(path)
+            loader = lambda role: load_authorized_documents(role, dbname=self.dbname)
+            with TestClient(create_app(key_file=path, document_loader=loader)) as client:
+                for record in read_keys(path):
+                    headers = {'Authorization': 'Bearer ' + record['token']}
+                    for environment in ('production', 'staging'):
+                        query = dict(QUERY, environment=environment)
+                        response = client.post('/v1/select', json=query, headers=headers)
+                        self.assertEqual(response.status_code, 200)
+                        self.assertEqual(response.json(), select(self.docs, role=record['role'], **query))
+                        if record['role'] != 'security':
+                            self.assertNotIn('SEC-021', response.text)
+
     def test_repeat_ingestion_is_noop(self):
         from opslens.database import ingest
         self.assertEqual(ingest(self.docs, dbname=self.dbname)['versions_inserted'], 0)
