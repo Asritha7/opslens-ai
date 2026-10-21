@@ -121,7 +121,7 @@
   {
     "id": "RB-050",
     "title": "Rotation recovery A",
-    "revision": 1,
+    "revision": 2,
     "service": "identity-service",
     "environment": "production",
     "version_min": "2.5.0",
@@ -136,7 +136,13 @@
     "claims": [
       {
         "action": "disable_key_rotation",
-        "rule": "must"
+        "rule": "must",
+        "citation": {
+          "start_line": 7,
+          "end_line": 7,
+          "quote": "For the fictional 2.5 production incident with key rotation enabled, this procedure requires disabling key rotation as the first remediation action after approval.",
+          "source_sha256": "a0d8cf5ac651313b8ef29240fbfaf7c57fb6ee04483d7eb4fbab439172f734fd"
+        }
       }
     ],
     "path": "datasets/northstar/RB-050.md"
@@ -144,7 +150,7 @@
   {
     "id": "RB-051",
     "title": "Rotation recovery B",
-    "revision": 1,
+    "revision": 2,
     "service": "identity-service",
     "environment": "production",
     "version_min": "2.5.0",
@@ -159,7 +165,13 @@
     "claims": [
       {
         "action": "disable_key_rotation",
-        "rule": "must_not"
+        "rule": "must_not",
+        "citation": {
+          "start_line": 7,
+          "end_line": 7,
+          "quote": "Under the same fictional 2.5 production conditions, this procedure prohibits disabling key rotation. This deliberately conflicts with RB-050; a reviewer must resolve it.",
+          "source_sha256": "091b502528ffc2931520a1ff293d0d97abcd92f5f4bdc27da9e952e77d584b87"
+        }
       }
     ],
     "path": "datasets/northstar/RB-051.md"

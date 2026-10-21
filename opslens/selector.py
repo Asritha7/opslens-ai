@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from opslens.citations import validate_citations
+
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = {"platform", "security", "intern"}
 
@@ -15,7 +17,14 @@ def version(value):
 
 
 def load_documents():
-    return json.loads((ROOT / "datasets/northstar/catalog.json").read_text())
+    documents = json.loads((ROOT / "datasets/northstar/catalog.json").read_text())
+    for doc in documents:
+        if any('citation' in claim for claim in doc['claims']):
+            path = (ROOT / doc['path']).resolve()
+            if not path.is_relative_to(ROOT / 'datasets/northstar') or path.suffix != '.md':
+                raise ValueError('Invalid citation source path')
+            validate_citations(doc['claims'], path.read_text(encoding='utf-8'))
+    return documents
 
 
 def select(documents, *, role, service, software_version, environment,
@@ -77,7 +86,10 @@ def select(documents, *, role, service, software_version, environment,
                     conflict_details.append({"action": action, "basis": "catalog_rules",
                         "documents": [{"document_id": d["id"], "title": d["title"],
                                        "revision": d["revision"], "path": d["path"],
-                                       "rules": sorted({c["rule"] for c in d["claims"] if c["action"] == action})}
+                                       "rules": sorted({c["rule"] for c in d["claims"] if c["action"] == action}),
+                                       "citations": [dict(c["citation"], rule=c["rule"], document_id=d["id"], revision=d["revision"])
+                                                     for c in d["claims"] if c["action"] == action and "citation" in c],
+                                       "citation_status": "available" if all("citation" in c for c in d["claims"] if c["action"] == action) else "incomplete"}
                                       for d in (left, right)],
                         "explanation": f"Applicable documents require and forbid the same action: {action}."})
     status = "conflict" if conflicts else "needs_context_or_review" if uncertain else "selected" if matches else "insufficient_evidence"
