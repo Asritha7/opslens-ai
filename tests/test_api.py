@@ -111,6 +111,10 @@ class ApiTests(unittest.TestCase):
         conflict = self.client.post('/v1/select', json=dict(QUERY, software_version='2.5.0'), headers=self.headers()).json()
         self.assertEqual(conflict['conflict_details'][0]['action'], 'disable_key_rotation')
         self.assertEqual(conflict['recommended_documents'], [])
+        cited = conflict['conflict_details'][0]['documents'][0]
+        self.assertEqual(cited['citation_status'], 'available')
+        self.assertEqual(cited['citations'][0]['revision'], 2)
+        self.assertIn('requires disabling key rotation', cited['citations'][0]['quote'])
 
     def test_revision_requires_authentication_before_loading(self):
         for headers in ({}, {'Authorization': 'Bearer invalid'}):

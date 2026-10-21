@@ -40,6 +40,6 @@ Extraction reads explicit Markdown fields and proposes values with provenance. I
 
 Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, authorized historical document retrieval, automated tests, and required CI.
 
-Remaining: browser UI, verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, exact conflict-passage citations, saved answers/audit history, background workers, and live service context. Current evidence references identify document IDs, revisions, and paths rather than exact supporting text spans.
+Remaining: browser UI, verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
 
 See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), and [testing](testing.md).

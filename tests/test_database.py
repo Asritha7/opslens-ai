@@ -121,6 +121,37 @@ class DatabaseTests(unittest.TestCase):
                         self.assertEqual(response.status_code, 404)
                         self.assertEqual(response.json(), missing.json())
 
+    def test_citations_publish_new_revision_and_preserve_legacy_evidence(self):
+        from opslens.database import ingest, connect, load_authorized_documents, load_authorized_revision
+        from opslens.citations import validate_citations
+        current = next(d for d in self.docs if d['id'] == 'RB-050')
+        legacy = copy.deepcopy(current)
+        legacy['revision'] = 1
+        legacy['claims'][0].pop('citation')
+        ingest([legacy], dbname=self.dbname)
+        with connect(dbname=self.dbname) as conn:
+            old = conn.execute("SELECT metadata FROM opslens.document_versions WHERE document_id='RB-050' AND revision=1").fetchone()[0]
+            self.assertNotIn('citation', old['claims'][0])
+        loaded = next(d for d in load_authorized_documents('platform', dbname=self.dbname) if d['id'] == 'RB-050')
+        stored = load_authorized_revision('platform', 'RB-050', 2, dbname=self.dbname)
+        validate_citations(loaded['claims'], stored['content'])
+        self.assertEqual(loaded['revision'], 2)
+        self.assertEqual(loaded['claims'], current['claims'])
+        self.assertIsNotNone(load_authorized_revision('platform', 'RB-050', 1, dbname=self.dbname))
+
+    def test_bad_citation_batch_does_not_publish(self):
+        from opslens.database import ingest, connect
+        good = copy.deepcopy(self.docs[0])
+        good['id'] = 'RB-999'
+        bad = copy.deepcopy(next(d for d in self.docs if d['id'] == 'RB-050'))
+        bad['revision'] = 3
+        bad['claims'][0]['citation']['quote'] = 'Invented quote'
+        with self.assertRaises(ValueError):
+            ingest([good, bad], dbname=self.dbname)
+        with connect(dbname=self.dbname) as conn:
+            self.assertEqual(conn.execute("SELECT count(*) FROM opslens.documents WHERE id='RB-999'").fetchone()[0], 0)
+            self.assertEqual(conn.execute("SELECT current_revision FROM opslens.documents WHERE id='RB-050'").fetchone()[0], 2)
+
     def test_repeat_ingestion_is_noop(self):
         from opslens.database import ingest
         self.assertEqual(ingest(self.docs, dbname=self.dbname)['versions_inserted'], 0)

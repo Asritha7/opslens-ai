@@ -182,3 +182,15 @@ PYTHON
 ```
 
 The response includes stored content, title, revision, checksum, and whether it is current. A missing or inaccessible document/revision gives the same 404 response. See [the API contract](docs/api.md#document-revision-retrieval) for historical-access rules and checksum semantics. This example only reads evidence and does not publish or modify documents.
+
+
+## Publish and inspect conflict citations
+
+The catalog advances only RB-050 and RB-051 to revision 2 to add reviewed citations; their Markdown text is unchanged. To publish these additions to an existing database, run:
+
+```sh
+.venv/bin/python -m opslens.database ingest
+.venv/bin/python -m opslens.selector --source database --role platform --version 2.5.0 --environment production --key-rotation true
+```
+
+The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate versions. A fresh database starts with the revisions present in the catalog, so it will not contain revision 1 of these two documents unless imported separately. Existing databases that have not ingested revision 2 continue to return explicitly incomplete citations for the legacy conflict. See [the citation guide](docs/citations.md).

@@ -10,6 +10,7 @@ import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
+from opslens.citations import validate_citations
 from opslens.selector import ROOT, ROLES, load_documents, version
 
 
@@ -107,7 +108,7 @@ def prepare(documents, root=ROOT):
         if not isinstance(doc['claims'], list):
             raise ValueError('Claims must be a list')
         for claim in doc['claims']:
-            if (set(claim) != {'action', 'rule'} or claim['rule'] not in ('must', 'must_not')
+            if (not isinstance(claim, dict) or set(claim) not in ({'action', 'rule'}, {'action', 'rule', 'citation'}) or claim['rule'] not in ('must', 'must_not')
                     or not isinstance(claim['action'], str) or not re.fullmatch(r'[a-z_]+', claim['action'])):
                 raise ValueError('Invalid normalized claim')
         path = (root / doc['path']).resolve()
@@ -116,6 +117,7 @@ def prepare(documents, root=ROOT):
         if path.stat().st_size > 1_000_000:
             raise ValueError('Document exceeds 1 MB limit')
         content = path.read_text(encoding='utf-8')
+        validate_citations(doc['claims'], content)
         # Permissions are current policy, not immutable historical evidence.
         metadata = {k: v for k, v in doc.items() if k != 'allowed_roles'}
         checksum = hashlib.sha256(json.dumps({'metadata': metadata, 'content': content}, sort_keys=True).encode()).hexdigest()
@@ -149,10 +151,14 @@ def load_authorized_documents(role, *, dbname='opslens'):
     if role not in ROLES:
         raise ValueError('Unknown reader role')
     with connect(role=role, dbname=dbname) as conn:
-        rows = conn.execute('''SELECT v.metadata, d.allowed_roles FROM opslens.documents d
+        rows = conn.execute('''SELECT v.metadata, d.allowed_roles, v.content FROM opslens.documents d
                                JOIN opslens.document_versions v ON v.document_id=d.id AND v.revision=d.current_revision
                                ORDER BY d.id''').fetchall()
-    return [dict(metadata, allowed_roles=roles) for metadata, roles in rows]
+    documents = []
+    for metadata, roles, content in rows:
+        validate_citations(metadata['claims'], content)
+        documents.append(dict(metadata, allowed_roles=roles))
+    return documents
 
 
 
