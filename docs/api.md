@@ -87,3 +87,12 @@ Successful JSON responses contain:
 Current database permissions govern all revisions. Removing a role's access or revoking the current document blocks that role's old revisions as well. Historical approved text can remain readable while access is retained; it is not automatically a recommendation. Use selection to evaluate applicability. Policy changes affect subsequent database reads; already-returned content cannot be retracted.
 
 Content is returned as a JSON string with no-store/nosniff headers, never rendered as HTML. A future viewer must treat Markdown as untrusted content and sanitize any rendering. This endpoint does not provide exact supporting spans, downloads by filesystem path, or edits. Database failures return generic 503 responses without fallback to source files.
+
+
+## Conflict source citations
+
+Each document in `conflict_details[].documents` now includes `citations` and `citation_status`. Each citation has `document_id`, `revision`, the normalized `rule`, `start_line`, `end_line`, `quote`, and `source_sha256`. Line numbers are one-based and inclusive; multiline quotes join those source lines with a newline. The hash covers the entire UTF-8 content, unlike the retrieval endpoint's combined content/metadata `checksum`.
+
+`citation_status: available` means every matching claim on that document has a citation. `incomplete` means one or more lacks one; any available citations are still returned, and an entirely uncited document has an empty list. Conflict detection and recommendation withholding do not depend on citation availability. `basis` remains `catalog_rules`: the normalized rules are manually authored, and quotation text is supplied separately. Validation checks textual identity, not semantic entailment.
+
+Quotes come from metadata validated against source content during ingestion and revalidated against stored content on database selection reads. Current row-level permissions are applied before those rows reach the application. The API never reads live filesystem documents to generate database-backed citations. Retrieval of the cited revision uses the existing endpoint and rechecks current permissions. See [citation authoring and revision rules](citations.md).

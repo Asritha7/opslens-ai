@@ -8,6 +8,7 @@ Select applicable fictional operational guidance using explicit metadata, before
 - [Architecture and current scope](docs/architecture.md)
 - [API request and response contract](docs/api.md)
 - [Metadata extraction and review](docs/metadata-proposals.md)
+- [Validated claim citations](docs/citations.md)
 - [Runbook authoring template](docs/runbook-template.md)
 - [Tests, CI, and troubleshooting](docs/testing.md)
 - [Contribution safeguards](AGENTS.md)
@@ -45,7 +46,7 @@ The CLI defaults to local files. After the database setup below, `--source datab
 
 CLI roles remain explicit test inputs. The local HTTP API authenticates bearer keys and derives the reader role from an owner-only server configuration; callers cannot supply their own role. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. The three demo keys map to named demo identities, not verified human accounts. OIDC and user registration are not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
 
-Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; authorized revision-content retrieval is available through the API; claim-level span validation remains future work. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
+Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; authorized revision-content retrieval is available through the API; manually authored claim citations are validated against exact source lines and content fingerprints. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
 
 Tests are development regression checks, not a held-out benchmark or a security guarantee. No paid service is used.
 
@@ -90,9 +91,9 @@ A local extractor now reads explicit Markdown applicability fields and produces 
 .venv/bin/python -m opslens.extraction docs/runbook-template.md
 ```
 
-Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Existing source revisions are unchanged.
+Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Extraction itself does not change published revisions.
 
-Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. No browser interface or exact conflict-passage citations are added here.
+Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. Conflict documents now include exact passages when citations are available; a browser interface remains future work.
 
 See [metadata proposals and result explanations](docs/metadata-proposals.md) for the supported format, review workflow, and response contract.
 
@@ -100,4 +101,4 @@ See [metadata proposals and result explanations](docs/metadata-proposals.md) for
 
 Authenticated clients can call `GET /v1/documents/{document_id}/revisions/{revision}` to retrieve stored Markdown, title, checksum, and current-revision information. The database enforces current permissions for historical revisions too. Missing documents, missing revisions, and inaccessible revisions return the same 404 response. Reading a document does not mean it is recommended for the current situation.
 
-See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). Exact supporting passages and a document viewer are still future work.
+See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). See [claim citations](docs/citations.md) for exact conflict passages. A document viewer remains future work.
