@@ -90,3 +90,5 @@ header{flex-wrap:wrap}
 @media(max-width:480px){header{padding:16px}
 .header-controls{width:100%;justify-content:space-between}
 }
+
+.draft-workspace{margin-top:24px}.draft-workspace details{margin:16px 0}.draft-workspace pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--source-bg);padding:16px;border-radius:8px;max-height:420px;overflow:auto}.metadata-table{border-collapse:collapse;width:100%;margin:16px 0}.metadata-table th,.metadata-table td{text-align:left;padding:10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.metadata-table th{width:42%}#draft-list button{margin:6px 8px 6px 0}#draft-preview{overflow-wrap:anywhere}input[type=file]{max-width:100%}

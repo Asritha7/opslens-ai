@@ -5,11 +5,13 @@ import json
 import os
 import secrets
 import stat
+from uuid import UUID
 from pathlib import Path
 from typing import Literal
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request, Path as ApiPath
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
@@ -19,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from opslens.database import load_authorized_documents, load_authorized_revision
 from opslens.selector import ROOT, ROLES, select
 from opslens.oidc import GoogleSessions, install_routes
+from opslens.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES
 
 KEY_FILE = ROOT / '.local/api-keys.json'
 OIDC_FILE = ROOT / '.local/google-oidc.json'
@@ -67,7 +70,8 @@ class SelectionRequest(BaseModel):
 
 
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
-               revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None):
+               revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None,
+               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft):
     app = FastAPI(title='OpsLens local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
     # Mode is fixed at startup. Removing a configured file fails closed, not back
@@ -108,6 +112,45 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
             if secrets.compare_digest(supplied, expected):
                 return {'subject': record['subject'], 'role': record['role']}
         raise unauthorized
+
+    def draft_owner(principal):
+        return owner_key('google' if sessions else 'demo', principal['subject'])
+
+    @app.post('/v1/drafts', status_code=201)
+    async def upload_draft(request: Request, filename: str, principal=Depends(identity)):
+        if request.headers.get('content-type', '').split(';')[0].strip().lower() != 'text/markdown':
+            raise HTTPException(415, 'Upload UTF-8 Markdown using text/markdown')
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_BYTES:
+                raise HTTPException(413, 'Markdown file exceeds 1 MB')
+            data.extend(chunk)
+        try:
+            content = data.decode('utf-8')
+            return await run_in_threadpool(draft_writer, draft_owner(principal), filename, content)
+        except DraftLimit:
+            raise HTTPException(429, 'Draft limit reached (20 per account); contact the local operator') from None
+        except (UnicodeError, DraftInputError):
+            raise HTTPException(422, 'Expected nonempty UTF-8 Markdown with a simple .md filename') from None
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Draft store unavailable') from None
+
+    @app.get('/v1/drafts')
+    def own_drafts(principal=Depends(identity)):
+        try:
+            return {'drafts': draft_lister(draft_owner(principal))}
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Draft store unavailable') from None
+
+    @app.get('/v1/drafts/{draft_id}')
+    def own_draft(draft_id: UUID, principal=Depends(identity)):
+        try:
+            result = draft_reader(draft_owner(principal), draft_id)
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Draft store unavailable') from None
+        if result is None:
+            raise HTTPException(404, 'Draft not found')
+        return result
 
     @app.get('/', include_in_schema=False)
     def workspace():

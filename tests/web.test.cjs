@@ -86,3 +86,33 @@ test('a denied Google query clears displayed evidence',async()=>{
   h.get('query-form').fire('submit'); h.respond(2,{},403); await tick();
   assert.equal(h.get('result').children.length,0); assert.equal(h.get('query-fields').disabled,true);
 });
+const draftFixture={id:'draft-id',filename:'example.md',content:'<script>untrusted()</script>',proposal:{proposed_metadata:{title:'Example'},provenance:{title:[{line:1,quote:'# Example'}]},issues:[],review_required:true}};
+test('draft upload sends raw Markdown and clears preview on disconnect',async()=>{
+  const h=harness(); await h.login();
+  const data=new Uint8Array([35,32,65]).buffer;
+  h.get('draft-file').files=[{name:'example.md',size:3,arrayBuffer:async()=>data}];
+  h.get('draft-form').fire('submit'); await tick();
+  assert.equal(h.pending[1].url,'/v1/drafts?filename=example.md');
+  assert.equal(h.pending[1].options.headers['Content-Type'],'text/markdown');
+  assert.equal(h.pending[1].options.body,data);
+  h.respond(1,draftFixture); await tick();
+  assert.ok(h.get('draft-preview').children.length);
+  h.get('disconnect').fire('click'); assert.equal(h.get('draft-preview').children.length,0);
+  assert.equal(h.get('draft-fields').disabled,true);
+});
+test('late draft upload cannot restore another session preview',async()=>{
+  const h=harness(); await h.login();
+  h.get('draft-file').files=[{name:'example.md',size:3,arrayBuffer:async()=>new ArrayBuffer(3)}];
+  h.get('draft-form').fire('submit'); await tick(); h.get('disconnect').fire('click');
+  h.respond(1,draftFixture); await tick();
+  assert.equal(h.get('draft-preview').children.length,0); assert.equal(h.get('draft-list').children.length,0);
+});
+test('saved drafts can be listed and source content remains plain text',async()=>{
+  const h=harness(); await h.login(); h.get('load-drafts').fire('click');
+  h.respond(1,{drafts:[{id:'draft-id',filename:'example.md'}]}); await tick();
+  find(h.get('draft-list'),'example.md').fire('click');
+  assert.equal(h.pending[2].url,'/v1/drafts/draft-id');
+  h.respond(2,draftFixture); await tick();
+  const source=h.get('draft-preview').children.find(e=>e.tag==='details' && e.children.some(c=>c.tag==='pre'));
+  assert.equal(source.children.find(e=>e.tag==='pre').textContent,'<script>untrusted()</script>');
+});

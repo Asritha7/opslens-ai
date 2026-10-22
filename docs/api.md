@@ -98,3 +98,7 @@ Each document in `conflict_details[].documents` now includes `citations` and `ci
 `citation_status: available` means every matching claim on that document has a citation. `incomplete` means one or more lacks one; any available citations are still returned, and an entirely uncited document has an empty list. Conflict detection and recommendation withholding do not depend on citation availability. `basis` remains `catalog_rules`: the normalized rules are manually authored, and quotation text is supplied separately. Validation checks textual identity, not semantic entailment.
 
 Quotes come from metadata validated against source content during ingestion and revalidated against stored content on database selection reads. Current row-level permissions are applied before those rows reach the application. The API never reads live filesystem documents to generate database-backed citations. Retrieval of the cited revision uses the existing endpoint and rechecks current permissions. See [citation authoring and revision rules](citations.md).
+
+## Private draft endpoints
+
+Authenticated users with an assigned role can create, list, and read their own unpublished drafts through `/v1/drafts`. Google-mode POSTs require the same Origin and request header as selection. Uploads use raw `text/markdown`, not JSON or multipart. See [the full request contract](drafts.md#api-contract). No endpoint approves or publishes a draft.

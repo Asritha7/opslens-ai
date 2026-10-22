@@ -18,7 +18,7 @@ The [official Google OIDC guide](https://developers.google.com/identity/openid-c
 
 At startup, the presence of `.local/google-oidc.json` selects Google mode. Demo bearer keys are then disabled, including the demo HTTP CLI. Absence selects the existing demo mode. Mode is fixed for that process: removing or corrupting a configured Google file fails closed with 503, without falling back to demo keys. Changing modes requires an intentional configuration change and restart.
 
-Current role assignments are read on every authenticated request. Removing a subject blocks subsequent evidence requests for its existing sessions; changing a role immediately changes its reader account. A signed-in account with no assignment may view only its own subject/assignment status, not evidence. The operating-system owner and database administrator remain trusted. Existing RBAC, read-only database accounts, and PostgreSQL row-level security continue to apply, including to historical revisions.
+Current role assignments are read on every authenticated request. Removing a subject blocks subsequent evidence requests for its existing sessions; changing a role immediately changes its reader account. A signed-in account with no assignment may view only its own subject/assignment status, not evidence or drafts. Assigned accounts may save private drafts but cannot approve or publish them. The operating-system owner and database administrator remain trusted. Existing RBAC, read-only database accounts, and PostgreSQL row-level security continue to apply, including to historical revisions.
 
 ## Login and session protection
 

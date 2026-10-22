@@ -76,6 +76,8 @@ for role in ('PLATFORM', 'SECURITY', 'INTERN'):
     key = f'READER_{role}_PASSWORD'
     if not any(line.startswith(key + '=') for line in text.splitlines()):
         text += '\n' + key + '=' + secrets.token_urlsafe(32) + '\n'
+if not any(line.startswith('DRAFTS_PASSWORD=') for line in text.splitlines()):
+    text += '\nDRAFTS_PASSWORD=' + secrets.token_urlsafe(32) + '\n'
 p.write_text(text)
 p.chmod(0o600)
 PY
@@ -85,7 +87,7 @@ docker compose up -d --wait db
 .venv/bin/python -m opslens.database ingest
 ```
 
-Bootstrap creates three non-superuser, read-only reader accounts and applies the numbered schema migration transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
+Bootstrap creates three non-superuser, read-only evidence readers and a separate restricted draft writer, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
 
 The admin credential is used for setup, ingestion, and test-database administration. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
 
@@ -131,7 +133,7 @@ API contract:
 
 To revoke an individual key, remove its record from the private JSON file while preserving mode 600; new requests reload the file, so no restart is needed. Requests already authenticated may finish. To rotate a key, replace its token locally with `secrets.token_urlsafe(32)` and update the client that holds it. Never reuse database passwords as API tokens. An empty, malformed, missing, duplicate-identity, or overly readable credential file fails closed. There is no default/fallback key.
 
-This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
+This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. Published evidence is read-only through the API. Private draft uploads use a separate restricted account; publication remains a trusted local CLI operation. The API does not read files as a fallback when the database is unavailable.
 
 Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
 
@@ -212,3 +214,9 @@ See [the browser walkthrough and authentication boundaries](docs/web-interface.m
 `ERR_CONNECTION_REFUSED` at 127.0.0.1:8000 means no API is accepting the connection. Start `.venv/bin/python -m opslens.api serve` from the repository and leave that terminal running, then open `http://127.0.0.1:8000/`. Docker runs PostgreSQL, not the Python API. The `/auth/google/callback` address is only a return endpoint for a login started through the workspace; do not open it as the home page. Google login additionally requires the private configuration described in [Google setup](docs/google-login.md).
 
 Use the header Theme control for System, Light, or Dark appearance. Only this preference is saved in browser storage.
+
+## Private Markdown drafts
+
+For an existing installation, rerun the credential-generation block under “Database schema, ingestion, and restricted readers” to add only the missing `DRAFTS_PASSWORD`. Run `.venv/bin/python -m opslens.database bootstrap` to apply migration 002. Existing credentials, published revisions, and document permissions are preserved. Restart the API to load the new routes (Google sessions will require sign-in again).
+
+After signing in with an assigned role, scroll to **Add a document for review**. Choose a UTF-8 `.md` file up to 1,000,000 bytes and select **Save draft and preview**. Use `docs/runbook-template.md` as a fictional example. **Load my drafts** reopens saved previews. See [draft intake](docs/drafts.md) for privacy, limits, and the distinction between extraction and publication.

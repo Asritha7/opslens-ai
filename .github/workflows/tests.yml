@@ -58,6 +58,7 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               for role in ('PLATFORM', 'SECURITY', 'INTERN'):
                   env.write(f'READER_{role}_PASSWORD={secrets.token_urlsafe(32)}\n')
+              env.write(f'DRAFTS_PASSWORD={secrets.token_urlsafe(32)}\n')
           PY
       - name: Verify pgvector
         run: |

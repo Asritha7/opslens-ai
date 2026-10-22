@@ -8,6 +8,7 @@ Select applicable fictional operational guidance using explicit metadata, before
 - [Architecture and current scope](docs/architecture.md)
 - [Browser workspace and access controls](docs/web-interface.md)
 - [API request and response contract](docs/api.md)
+- [Private draft upload and preview](docs/drafts.md)
 - [Metadata extraction and review](docs/metadata-proposals.md)
 - [Validated claim citations](docs/citations.md)
 - [Runbook authoring template](docs/runbook-template.md)
@@ -105,3 +106,7 @@ See [metadata proposals and result explanations](docs/metadata-proposals.md) for
 Authenticated clients can call `GET /v1/documents/{document_id}/revisions/{revision}` to retrieve stored Markdown, title, checksum, and current-revision information. The database enforces current permissions for historical revisions too. Missing documents, missing revisions, and inaccessible revisions return the same 404 response. Reading a document does not mean it is recommended for the current situation.
 
 See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). See [claim citations](docs/citations.md) for exact conflict passages. The browser viewer displays stored revisions as numbered plain text and highlights matching cited passages.
+
+## Private draft intake
+
+Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader, independently of published document permissions. They never enter guidance selection. This first slice has no editing, approval, or publishing action. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
