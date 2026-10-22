@@ -4,14 +4,14 @@ import os
 import unittest
 import uuid
 
-from opslens.selector import load_documents, select
+from runreviq.selector import load_documents, select
 
 
-@unittest.skipUnless(os.environ.get('OPSLENS_TEST_DATABASE') == '1', 'Set OPSLENS_TEST_DATABASE=1 for local DB integration tests')
+@unittest.skipUnless(os.environ.get('RUNREVIQ_TEST_DATABASE') == '1', 'Set RUNREVIQ_TEST_DATABASE=1 for local DB integration tests')
 class DatabaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from opslens.database import connect, bootstrap
+        from runreviq.database import connect, bootstrap
         from psycopg import sql
         cls.dbname = 'opslens_test_' + uuid.uuid4().hex
         with connect(dbname='postgres', autocommit=True) as conn:
@@ -21,14 +21,14 @@ class DatabaseTests(unittest.TestCase):
 
     @classmethod
     def drop_database(cls):
-        from opslens.database import connect
+        from runreviq.database import connect
         from psycopg import sql
         assert cls.dbname.startswith('opslens_test_')
         with connect(dbname='postgres', autocommit=True) as conn:
             conn.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(cls.dbname)))
 
     def setUp(self):
-        from opslens.database import connect, ingest
+        from runreviq.database import connect, ingest
         # This database was created by this test class, never the development database.
         with connect(dbname=self.dbname) as conn:
             conn.execute('TRUNCATE opslens.document_versions, opslens.documents')
@@ -36,7 +36,7 @@ class DatabaseTests(unittest.TestCase):
         ingest(self.docs, dbname=self.dbname)
 
     def test_file_database_parity(self):
-        from opslens.database import load_authorized_documents
+        from runreviq.database import load_authorized_documents
         for role in ('platform', 'security', 'intern'):
             for ver in ('2.1.0', '2.4.0', '2.5.0', '2.6.0'):
                 for env in ('production', 'staging'):
@@ -50,8 +50,8 @@ class DatabaseTests(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from fastapi.testclient import TestClient
-        from opslens.api import create_app, initialize_keys, read_keys
-        from opslens.database import load_authorized_documents
+        from runreviq.api import create_app, initialize_keys, read_keys
+        from runreviq.database import load_authorized_documents
         from test_api import QUERY
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'keys.json'
@@ -72,8 +72,8 @@ class DatabaseTests(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from fastapi.testclient import TestClient
-        from opslens.api import create_app, initialize_keys, read_keys
-        from opslens.database import ingest, load_authorized_revision, prepare
+        from runreviq.api import create_app, initialize_keys, read_keys
+        from runreviq.database import ingest, load_authorized_revision, prepare
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'keys.json'
             initialize_keys(path)
@@ -122,8 +122,8 @@ class DatabaseTests(unittest.TestCase):
                         self.assertEqual(response.json(), missing.json())
 
     def test_citations_publish_new_revision_and_preserve_legacy_evidence(self):
-        from opslens.database import ingest, connect, load_authorized_documents, load_authorized_revision
-        from opslens.citations import validate_citations
+        from runreviq.database import ingest, connect, load_authorized_documents, load_authorized_revision
+        from runreviq.citations import validate_citations
         current = next(d for d in self.docs if d['id'] == 'RB-050')
         legacy = copy.deepcopy(current)
         legacy['revision'] = 1
@@ -140,7 +140,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertIsNotNone(load_authorized_revision('platform', 'RB-050', 1, dbname=self.dbname))
 
     def test_bad_citation_batch_does_not_publish(self):
-        from opslens.database import ingest, connect
+        from runreviq.database import ingest, connect
         good = copy.deepcopy(self.docs[0])
         good['id'] = 'RB-999'
         bad = copy.deepcopy(next(d for d in self.docs if d['id'] == 'RB-050'))
@@ -153,11 +153,11 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT current_revision FROM opslens.documents WHERE id='RB-050'").fetchone()[0], 2)
 
     def test_repeat_ingestion_is_noop(self):
-        from opslens.database import ingest
+        from runreviq.database import ingest
         self.assertEqual(ingest(self.docs, dbname=self.dbname)['versions_inserted'], 0)
 
     def test_raw_reader_cannot_see_restricted_sources(self):
-        from opslens.database import connect
+        from runreviq.database import connect
         with connect(role='intern', dbname=self.dbname) as conn:
             ids = conn.execute('SELECT document_id FROM opslens.document_versions ORDER BY document_id').fetchall()
             self.assertEqual(ids, [('RB-044',)])
@@ -165,20 +165,20 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT count(*) FROM opslens.document_versions WHERE document_id IN ('SEC-021','RB-070')").fetchone()[0], 0)
 
     def test_reader_is_not_privileged(self):
-        from opslens.database import connect
+        from runreviq.database import connect
         with connect(role='platform', dbname=self.dbname) as conn:
             self.assertEqual(conn.execute('SELECT rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user').fetchone(), (False, False, False, False))
 
     def test_reader_cannot_write_or_assume_other_persona(self):
         import psycopg
-        from opslens.database import connect
+        from runreviq.database import connect
         for statement in ("UPDATE opslens.documents SET allowed_roles=ARRAY['intern']", 'SET ROLE opslens_reader_security'):
             with self.subTest(statement=statement), self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with connect(role='intern', dbname=self.dbname) as conn:
                     conn.execute(statement)
 
     def test_same_revision_changes_roll_back_whole_batch(self):
-        from opslens.database import connect, ingest
+        from runreviq.database import connect, ingest
         new = copy.deepcopy(self.docs[0])
         new['id'] = 'RB-999'
         changed = copy.deepcopy(self.docs[1])
@@ -189,7 +189,7 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT count(*) FROM opslens.documents WHERE id='RB-999'").fetchone()[0], 0)
 
     def test_new_revision_preserves_history_and_stale_upload_cannot_replace_it(self):
-        from opslens.database import connect, ingest
+        from runreviq.database import connect, ingest
         newer = copy.deepcopy(self.docs[1])
         newer.update(revision=2, title='Reviewed revision two', allowed_roles=['security'])
         ingest([newer], dbname=self.dbname)
@@ -204,7 +204,7 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT count(*) FROM opslens.document_versions WHERE document_id='RB-042'").fetchone()[0], 0)
 
     def test_permission_changes_apply_to_existing_revision(self):
-        from opslens.database import ingest, load_authorized_documents
+        from runreviq.database import ingest, load_authorized_documents
         changed = copy.deepcopy(self.docs[1])
         changed['allowed_roles'] = ['security']
         self.assertEqual(ingest([changed], dbname=self.dbname)['versions_inserted'], 0)
@@ -212,21 +212,21 @@ class DatabaseTests(unittest.TestCase):
 
     def test_database_rejects_in_place_revision_update(self):
         import psycopg
-        from opslens.database import connect
+        from runreviq.database import connect
         with self.assertRaises(psycopg.errors.RaiseException):
             with connect(dbname=self.dbname) as conn:
                 conn.execute("UPDATE opslens.document_versions SET content='changed' WHERE document_id='RB-042'")
 
     def test_migration_is_repeatable(self):
-        from opslens.database import bootstrap
+        from runreviq.database import bootstrap
         bootstrap(self.dbname)
 
 
 class CatalogValidationTests(unittest.TestCase):
     def test_revision_reader_rejects_admin_or_invalid_inputs(self):
         from unittest.mock import patch
-        from opslens.database import load_authorized_revision
-        with patch('opslens.database.connect') as connect:
+        from runreviq.database import load_authorized_revision
+        with patch('runreviq.database.connect') as connect:
             for role, doc, rev in ((None, 'RB-042', 1), ('admin', 'RB-042', 1),
                                    ('platform', "RB-042' OR true", 1), ('platform', 'RB-042', True),
                                    ('platform', 'RB-042', 0), ('platform', 'RB-042', 2147483648)):
@@ -235,7 +235,7 @@ class CatalogValidationTests(unittest.TestCase):
             connect.assert_not_called()
 
     def test_reject_invalid_catalog_before_ingestion(self):
-        from opslens.database import prepare
+        from runreviq.database import prepare
         for updates in ({'path': '../../.env'}, {'revision': 0}, {'revision': True},
                         {'allowed_roles': ['admin']}, {'version_min': '2.5.0', 'version_max_exclusive': '2.4.0'},
                         {'key_rotation_enabled': 'true'}, {'metadata_verified': 'true'}):
@@ -246,7 +246,7 @@ class CatalogValidationTests(unittest.TestCase):
                     prepare([doc])
 
     def test_duplicate_ids_rejected(self):
-        from opslens.database import prepare
+        from runreviq.database import prepare
         doc = load_documents()[0]
         with self.assertRaises(ValueError):
             prepare([doc, doc])

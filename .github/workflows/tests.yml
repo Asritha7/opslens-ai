@@ -36,7 +36,7 @@ jobs:
           --health-retries 12
     env:
       POSTGRES_PASSWORD: opslens-ci-only
-      OPSLENS_TEST_DATABASE: "1"
+      RUNREVIQ_TEST_DATABASE: "1"
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -63,7 +63,7 @@ jobs:
       - name: Verify pgvector
         run: |
           .venv/bin/python - <<'PY'
-          from opslens.database import connect
+          from runreviq.database import connect
           with connect() as conn:
               conn.execute('CREATE EXTENSION IF NOT EXISTS vector')
               distance = conn.execute("SELECT '[1,0,0]'::vector <-> '[1,0,0]'::vector").fetchone()[0]

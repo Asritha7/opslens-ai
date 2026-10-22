@@ -1,6 +1,6 @@
 # Architecture and current scope
 
-OpsLens is a local operational-evidence prototype. It selects applicable fictional runbooks and explains conflicts or uncertainty using explicit metadata. No LLM or cloud inference is involved.
+Runreviq is a local operational-evidence prototype. It selects applicable fictional runbooks and explains conflicts or uncertainty using explicit metadata. No LLM or cloud inference is involved.
 
 ```mermaid
 flowchart TD

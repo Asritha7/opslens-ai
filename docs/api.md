@@ -4,7 +4,7 @@ Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:
 
 ## Endpoints and authentication
 
-Google mode uses an HttpOnly session cookie and disables bearer keys. Cookie-authenticated POSTs require `Origin: http://127.0.0.1:8000` and `X-OpsLens-Request: 1`. See [the authentication endpoint contract](google-login.md#endpoint-contract).
+Google mode uses an HttpOnly session cookie and disables bearer keys. Cookie-authenticated POSTs require `Origin: http://127.0.0.1:8000` and `X-Runreviq-Request: 1`. See [the authentication endpoint contract](google-login.md#endpoint-contract).
 
 | Endpoint | Credential | Response |
 |---|---|---|
@@ -13,7 +13,7 @@ Google mode uses an HttpOnly session cookie and disables bearer keys. Cookie-aut
 | `POST /v1/select` | Bearer key or Google session | Selection result below |
 | `GET /v1/documents/{document_id}/revisions/{revision}` | Bearer key or Google session | Stored document revision under current access policy |
 
-In demo mode, protected requests use `Authorization: Bearer <local-key>`. Use the supplied `opslens.client` command to avoid putting keys into shell history. The private key file is plaintext with owner-only permissions and is Git-ignored. Records map a unique subject and token to platform, security, or intern. The server reloads it per request; revocation applies to subsequent authentication, not already-running requests.
+In demo mode, protected requests use `Authorization: Bearer <local-key>`. Use the supplied `runreviq.client` command to avoid putting keys into shell history. The private key file is plaintext with owner-only permissions and is Git-ignored. Records map a unique subject and token to platform, security, or intern. The server reloads it per request; revocation applies to subsequent authentication, not already-running requests.
 
 ## Selection request
 

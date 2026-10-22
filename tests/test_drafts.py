@@ -11,8 +11,8 @@ import psycopg
 from psycopg import sql
 from fastapi.testclient import TestClient
 
-from opslens.api import create_app, initialize_keys, read_keys
-from opslens.drafts import (prepare_draft, create_draft, list_drafts, get_draft,
+from runreviq.api import create_app, initialize_keys, read_keys
+from runreviq.drafts import (prepare_draft, create_draft, list_drafts, get_draft,
                             connect_drafts, scope, owner_key, DraftLimit, DraftInputError)
 
 CONTENT = '# New runbook\n\n## Applicability\nservice: identity-service\nenvironment: production\nversion_min: 2.4.0\nversion_max_exclusive: 2.5.0\nkey_rotation_enabled: true\n'
@@ -94,11 +94,11 @@ class DraftApiTests(unittest.TestCase):
         self.assertEqual(self.client.get('/v1/drafts/not-a-uuid', headers=self.headers).status_code, 422)
 
 
-@unittest.skipUnless(os.environ.get('OPSLENS_TEST_DATABASE') == '1', 'Requires disposable PostgreSQL database')
+@unittest.skipUnless(os.environ.get('RUNREVIQ_TEST_DATABASE') == '1', 'Requires disposable PostgreSQL database')
 class DraftDatabaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from opslens.database import connect, bootstrap
+        from runreviq.database import connect, bootstrap
         cls.dbname = 'opslens_test_' + uuid.uuid4().hex
         with connect(dbname='postgres', autocommit=True) as conn:
             conn.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(cls.dbname)))
@@ -107,7 +107,7 @@ class DraftDatabaseTests(unittest.TestCase):
 
     @classmethod
     def drop_database(cls):
-        from opslens.database import connect
+        from runreviq.database import connect
         assert cls.dbname.startswith('opslens_test_')
         with connect(dbname='postgres', autocommit=True) as conn:
             conn.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(cls.dbname)))
@@ -152,20 +152,20 @@ class DraftDatabaseTests(unittest.TestCase):
                     conn.execute(statement)
 
     def test_evidence_reader_cannot_read_drafts(self):
-        from opslens.database import connect
+        from runreviq.database import connect
         self.save()
         with connect(role='platform', dbname=self.dbname) as conn:
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 conn.execute('SELECT * FROM opslens.upload_drafts')
 
     def test_quota_is_per_owner(self):
-        with patch('opslens.drafts.MAX_DRAFTS', 2):
+        with patch('runreviq.drafts.MAX_DRAFTS', 2):
             self.save(); self.save()
             with self.assertRaises(DraftLimit): self.save()
             create_draft(self.other, 'other.md', CONTENT, dbname=self.dbname)
 
     def test_drafts_do_not_enter_selector_and_bootstrap_preserves_them(self):
-        from opslens.database import load_authorized_documents, bootstrap
+        from runreviq.database import load_authorized_documents, bootstrap
         self.save(); bootstrap(self.dbname)
         self.assertEqual(len(list_drafts(self.owner, dbname=self.dbname)), 1)
         self.assertEqual(load_authorized_documents('platform', dbname=self.dbname), [])

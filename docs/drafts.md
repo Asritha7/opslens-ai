@@ -31,7 +31,7 @@ The application server and operating-system/database operator remain trusted: a 
 
 ## API contract
 
-All routes use the existing authentication dependency and require an assigned role. Google cookie-authenticated POSTs also require the configured Origin and `X-OpsLens-Request: 1`. An unassigned Google identity receives 403. Demo bearer mode remains available only when Google is not configured.
+All routes use the existing authentication dependency and require an assigned role. Google cookie-authenticated POSTs also require the configured Origin and `X-Runreviq-Request: 1`. An unassigned Google identity receives 403. Demo bearer mode remains available only when Google is not configured.
 
 | Endpoint | Input / response |
 |---|---|

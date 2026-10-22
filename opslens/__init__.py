@@ -1,1 +1,0 @@
-"""OpsLens local prototype."""

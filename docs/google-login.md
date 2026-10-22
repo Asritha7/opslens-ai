@@ -6,8 +6,8 @@ Google login is optional and requires your own OAuth Web client. A live local Go
 
 1. In the [Google Auth Platform console](https://console.cloud.google.com/auth/overview), select or create the intended project. Configure the consent/branding and audience for your application. Use testing access and add your Google account as a test user where applicable. Do not enable billing or unrelated paid APIs for this setup.
 2. Create an OAuth client of type **Web application**. Register this exact authorized redirect URI: `http://127.0.0.1:8000/auth/google/callback`. The server uses this fixed address, not a caller-supplied host or redirect. This server-side flow needs no Google JavaScript SDK or authorized JavaScript origin.
-3. From the repository, run `./uv-local sync --frozen`, then `.venv/bin/python -m opslens.oidc`. Enter the client ID and secret at the prompts. The secret is hidden and neither value is placed in command-line arguments. This creates `.local/google-oidc.json` with mode 600 and refuses to overwrite an existing file. Never paste the secret into chat or commit it.
-4. Restart `.venv/bin/python -m opslens.api serve` and open `http://127.0.0.1:8000/`. Select **Continue with Google** and complete login. Use 127.0.0.1, not localhost; Google mode rejects other Host names.
+3. From the repository, run `./uv-local sync --frozen`, then `.venv/bin/python -m runreviq.oidc`. Enter the client ID and secret at the prompts. The secret is hidden and neither value is placed in command-line arguments. This creates `.local/google-oidc.json` with mode 600 and refuses to overwrite an existing file. Never paste the secret into chat or commit it.
+4. Restart `.venv/bin/python -m runreviq.api serve` and open `http://127.0.0.1:8000/`. Select **Continue with Google** and complete login. Use 127.0.0.1, not localhost; Google mode rejects other Host names.
 5. The initial configuration grants nobody access. After login, the page displays your verified Google subject ID and explains that no role is assigned. As trusted operator, edit only the `allowed_subjects` object in the private configuration, mapping that exact subject to `platform`, `security`, or `intern`. For example, `"allowed_subjects": {"YOUR_VERIFIED_SUBJECT": "platform"}`. Preserve file mode 600. Reload the page; no restart is needed for role changes.
 
 Do not grant roles based on a typed email, email domain, or a role supplied by the browser. The subject comes from Google's verified ID token. Google is the only supported issuer, so the effective identity key is the fixed Google issuer plus subject.
@@ -24,16 +24,16 @@ Current role assignments are read on every authenticated request. Removing a sub
 
 - Authorization Code flow uses PKCE S256, random state, and nonce. State is bound to an HttpOnly browser cookie, expires after ten minutes, and is consumed once.
 - The backend exchanges the code at Google's fixed HTTPS token endpoint. PyJWT validates the RS256 signature using Google's JWKS, issuer, audience, expiry, issued-at time, required claims, nonce, and authorized party where relevant. It does not accept unsigned tokens or a browser-supplied signing-key URL.
-- Google ID/access tokens are not stored in the browser or persisted by OpsLens. Only the identity subject is retained in the application session; no offline access/refresh token is requested. The only requested scope is `openid`.
+- Google ID/access tokens are not stored in the browser or persisted by Runreviq. Only the identity subject is retained in the application session; no offline access/refresh token is requested. The only requested scope is `openid`.
 - A fresh random session ID is sent in an HttpOnly, SameSite=Lax cookie. Only its SHA-256 digest is stored server-side. Sessions expire after at most one hour, capped by ID-token expiry; they do not refresh automatically. Re-login replaces the browser's old session.
-- Logout invalidates the server session and clears its cookie. It signs out of OpsLens, not the user's Google account. Restarting the API invalidates every session and pending login. Reloading the browser restores a still-valid Google session, unlike demo-key mode.
-- Cookie-authenticated POST requests require the fixed Origin and `X-OpsLens-Request: 1` header. Cross-origin API access is not enabled. The UI clears displayed evidence on 401/403 and discards stale responses after disconnect.
+- Logout invalidates the server session and clears its cookie. It signs out of Runreviq, not the user's Google account. Restarting the API invalidates every session and pending login. Reloading the browser restores a still-valid Google session, unlike demo-key mode.
+- Cookie-authenticated POST requests require the fixed Origin and `X-Runreviq-Request: 1` header. Cross-origin API access is not enabled. The UI clears displayed evidence on 401/403 and discards stale responses after disconnect.
 
 ## Boundaries
 
 This is a single-process, loopback-only implementation. Cookies deliberately lack Secure on this local HTTP address; public deployment would require HTTPS, Secure cookies, production redirect configuration, and a separate review. Do not expose this server through a tunnel. In-memory stores are bounded to 1,000 pending logins and 1,000 sessions and prune expired entries. There is no distributed session store, audit log, account-management UI, or general rate limiter.
 
-Google requires internet access during login and signing-key retrieval. Existing sessions still use local role configuration and PostgreSQL. Prior returned evidence cannot be retracted. Google MFA is controlled by the user's Google account; OpsLens does not enforce its own MFA policy.
+Google requires internet access during login and signing-key retrieval. Existing sessions still use local role configuration and PostgreSQL. Prior returned evidence cannot be retracted. Google MFA is controlled by the user's Google account; Runreviq does not enforce its own MFA policy.
 
 ## Endpoint contract
 
@@ -56,7 +56,7 @@ Offline tests use generated RSA keys and a fake token exchange; they cover signa
 
 The operator registered a Google Web OAuth client and entered its credentials through the private local setup command. The following steps were observed in the running browser:
 
-1. Google sign-in returned successfully to OpsLens with a valid application session.
+1. Google sign-in returned successfully to Runreviq with a valid application session.
 2. The initially unassigned account saw its own enrollment identifier while evidence controls remained disabled.
 3. The operator assigned the verified subject the platform role in the private configuration.
 4. Reloading restored the existing Google session with the assigned role, without restarting the API.

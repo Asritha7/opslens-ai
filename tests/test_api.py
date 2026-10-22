@@ -9,8 +9,8 @@ from unittest.mock import Mock
 import psycopg
 from fastapi.testclient import TestClient
 
-from opslens.api import create_app, initialize_keys, read_keys
-from opslens.selector import load_documents
+from runreviq.api import create_app, initialize_keys, read_keys
+from runreviq.selector import load_documents
 
 QUERY = {'service': 'identity-service', 'software_version': '2.4.0',
          'environment': 'production', 'key_rotation_enabled': True}

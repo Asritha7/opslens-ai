@@ -2,8 +2,8 @@ import copy
 import hashlib
 import unittest
 
-from opslens.citations import validate_citations
-from opslens.selector import load_documents, select
+from runreviq.citations import validate_citations
+from runreviq.selector import load_documents, select
 
 
 class CitationTests(unittest.TestCase):

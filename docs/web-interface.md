@@ -46,7 +46,7 @@ This is a loopback-only prototype without TLS, rate limiting, production identit
 
 ## Appearance
 
-The header provides System, Light, and Dark themes. System follows the operating-system color preference, including changes while the page is open. An explicit choice is remembered in browser localStorage under `opslens-theme`; no credentials are saved there. If browser storage is blocked, the theme still works for the current page. Dark colors cover forms, status notices, conflict quotations, and citation highlights.
+The header provides System, Light, and Dark themes. System follows the operating-system color preference, including changes while the page is open. An explicit choice is remembered in browser localStorage under `runreviq-theme` (with a fallback to the previous `opslens-theme` preference); no credentials are saved there. If browser storage is blocked, the theme still works for the current page. Dark colors cover forms, status notices, conflict quotations, and citation highlights.
 
 ## Private drafts
 

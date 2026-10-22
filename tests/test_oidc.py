@@ -13,8 +13,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 import jwt
 
-from opslens.api import create_app
-from opslens.oidc import GoogleProvider, GoogleSessions, ISSUER, ORIGIN, SESSION_COOKIE, FLOW_COOKIE
+from runreviq.api import create_app
+from runreviq.oidc import GoogleProvider, GoogleSessions, ISSUER, ORIGIN, SESSION_COOKIE, FLOW_COOKIE
 from tests.test_api import QUERY
 
 
@@ -31,7 +31,7 @@ class OidcTests(unittest.TestCase):
         self.loader = Mock(return_value=[])
         self.client = TestClient(create_app(oidc_file=self.path, oidc_provider=self.provider, document_loader=self.loader), base_url=ORIGIN)
         self.addCleanup(self.client.close)
-        self.headers = {'Origin': ORIGIN, 'X-OpsLens-Request': '1'}
+        self.headers = {'Origin': ORIGIN, 'X-Runreviq-Request': '1'}
 
     def save(self):
         self.path.write_text(json.dumps(self.config))
@@ -120,7 +120,7 @@ class OidcTests(unittest.TestCase):
 
     def test_csrf_and_host_checks(self):
         self.login()
-        for headers in ({}, {'Origin': 'https://evil.example', 'X-OpsLens-Request': '1'}, {'Origin': ORIGIN}):
+        for headers in ({}, {'Origin': 'https://evil.example', 'X-Runreviq-Request': '1'}, {'Origin': ORIGIN}):
             self.assertEqual(self.client.post('/v1/select', json=QUERY, headers=headers).status_code, 403)
             self.assertEqual(self.client.post('/auth/logout', headers=headers).status_code, 403)
         self.assertEqual(self.client.get('/auth/session', headers={'Host': 'evil.example'}).status_code, 400)
@@ -149,7 +149,7 @@ class OidcTests(unittest.TestCase):
     def test_expired_callback_cannot_exchange_code(self):
         now = [time.time()]
         factory = lambda *args: GoogleSessions(*args, clock=lambda: now[0])
-        with patch('opslens.api.GoogleSessions', side_effect=factory):
+        with patch('runreviq.api.GoogleSessions', side_effect=factory):
             app = create_app(oidc_file=self.path, oidc_provider=self.provider)
         with TestClient(app, base_url=ORIGIN) as client:
             redirect = client.get('/auth/google/login', follow_redirects=False)
@@ -162,7 +162,7 @@ class OidcTests(unittest.TestCase):
     def test_expired_session_cannot_read_evidence(self):
         now = [time.time()]
         factory = lambda *args: GoogleSessions(*args, clock=lambda: now[0])
-        with patch('opslens.api.GoogleSessions', side_effect=factory):
+        with patch('runreviq.api.GoogleSessions', side_effect=factory):
             app = create_app(oidc_file=self.path, oidc_provider=self.provider, document_loader=self.loader)
         with TestClient(app, base_url=ORIGIN) as client:
             redirect = client.get('/auth/google/login', follow_redirects=False)

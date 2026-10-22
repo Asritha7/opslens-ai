@@ -10,8 +10,8 @@ import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
-from opslens.citations import validate_citations
-from opslens.selector import ROOT, ROLES, load_documents, version
+from runreviq.citations import validate_citations
+from runreviq.selector import ROOT, ROLES, load_documents, version
 
 
 def credentials():
@@ -198,7 +198,7 @@ def load_authorized_revision(role, document_id, revision, *, dbname='opslens'):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Manage the local OpsLens database')
+    parser = argparse.ArgumentParser(description='Manage the local Runreviq database')
     parser.add_argument('command', choices=['bootstrap', 'ingest'])
     args = parser.parse_args()
     try:

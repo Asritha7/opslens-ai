@@ -19,7 +19,7 @@
   function reset(message = 'Disconnected. Enter a key to reconnect.') {
     epoch++; querySequence++; token = ''; lastQuery = null;
     $('key').value = ''; $('query-fields').disabled = true; $('access-form').hidden = authMode !== 'demo'; $('google-access').hidden = authMode !== 'google';
-    $('disconnect').hidden = true; $('identity').textContent = authMode === 'google' ? 'Sign in with Google. Access is assigned by OpsLens.' : 'Connect with a local demo key. Your role is assigned by the server.';
+    $('disconnect').hidden = true; $('identity').textContent = authMode === 'google' ? 'Sign in with Google. Access is assigned by Runreviq.' : 'Connect with a local demo key. Your role is assigned by the server.';
     $('access-status').textContent = message; $('result').replaceChildren(); clearViewer();
     $('query-status').textContent = 'Connect and describe your situation to begin.';
     draftSequence++; $('draft-fields').disabled = true; $('draft-file').value = ''; $('draft-list').replaceChildren(); $('draft-preview').replaceChildren(); $('draft-status').textContent = 'Connect to upload or view your drafts.';
@@ -28,7 +28,7 @@
   async function request(path, options = {}, credential = token) {
     const {contentType, ...fetchOptions} = options;
     const response = await fetch(path, {...fetchOptions, cache: 'no-store', credentials: authMode === 'google' ? 'same-origin' : 'omit', redirect: 'error',
-      headers: {...(authMode === 'google' ? {'X-OpsLens-Request':'1'} : {'Authorization': `Bearer ${credential}`}), ...(options.body ? {'Content-Type': contentType || 'application/json'} : {})}});
+      headers: {...(authMode === 'google' ? {'X-Runreviq-Request':'1'} : {'Authorization': `Bearer ${credential}`}), ...(options.body ? {'Content-Type': contentType || 'application/json'} : {})}});
     if (!response.ok) {
       const error = new Error(response.status === 401 ? 'Access expired or credentials missing. Reconnect to continue.' :
         response.status === 403 ? 'Your account has no permitted role, or this request was rejected. Reconnect or contact the operator.' :
@@ -79,10 +79,10 @@
       if (generation !== epoch) return;
       if (!['google', 'demo'].includes(config.mode)) throw new Error('Unknown mode');
       authMode = config.mode;
-      $('access-hint').textContent = authMode === 'google' ? 'Your session lasts up to one hour. Disconnect signs out of OpsLens.' : 'Key stays in this page’s memory. Reloading or disconnecting clears access.';
+      $('access-hint').textContent = authMode === 'google' ? 'Your session lasts up to one hour. Disconnect signs out of Runreviq.' : 'Key stays in this page’s memory. Reloading or disconnecting clears access.';
       $('access-form').hidden = authMode !== 'demo'; $('google-access').hidden = authMode !== 'google';
       if (authMode === 'google') {
-        $('identity').textContent = 'Sign in with Google. Access is assigned by OpsLens.';
+        $('identity').textContent = 'Sign in with Google. Access is assigned by Runreviq.';
         try {
           const identity = await request('/auth/session');
           if (generation !== epoch) return;

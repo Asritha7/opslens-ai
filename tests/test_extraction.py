@@ -1,7 +1,7 @@
 import hashlib
 import unittest
 
-from opslens.extraction import extract
+from runreviq.extraction import extract
 
 SOURCE = '''# Example runbook
 

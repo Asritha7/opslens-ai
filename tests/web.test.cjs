@@ -17,7 +17,7 @@ function harness(mode='demo') {
   get('service').value='identity-service'; get('version').value='2.4.0'; get('environment').value='production'; get('rotation').value='unknown';
   const context={document:{getElementById:get,createElement:tag=>new Element(tag)},window:{addEventListener:(name,fn)=>events[name]=fn},
     fetch:(url,options)=>url === '/auth/config' ? Promise.resolve({ok:true,json:async()=>({mode})}) : new Promise(resolve=>pending.push({url,options,resolve}))};
-  vm.runInNewContext(fs.readFileSync('opslens/web/app.js','utf8'),context);
+  vm.runInNewContext(fs.readFileSync('runreviq/web/app.js','utf8'),context);
   const respond=(index,data,status=200)=>pending[index].resolve({ok:status===200,status,json:async()=>data});
   const login=async()=>{ get('key').value='test-key'; const done=get('access-form').fire('submit'); respond(pending.length-1,{subject:'test',role:'platform'}); await done; };
   return {get,pending,respond,login,events};
@@ -66,7 +66,7 @@ test('Google session uses cookies without a bearer and logout clears evidence',a
   h.get('query-form').fire('submit');
   assert.equal(h.pending[1].options.credentials,'same-origin');
   assert.equal(h.pending[1].options.headers.Authorization,undefined);
-  assert.equal(h.pending[1].options.headers['X-OpsLens-Request'],'1');
+  assert.equal(h.pending[1].options.headers['X-Runreviq-Request'],'1');
   h.respond(1,result); await tick();
   const done=h.get('disconnect').fire('click');
   assert.equal(h.get('result').children.length,0);

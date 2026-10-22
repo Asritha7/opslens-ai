@@ -4,7 +4,7 @@ import json
 import re
 from pathlib import Path
 
-from opslens.citations import validate_citations
+from runreviq.citations import validate_citations
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = {"platform", "security", "intern"}
@@ -137,7 +137,7 @@ def main():
     try:
         if args.source == "database":
             import psycopg
-            from opslens.database import load_authorized_documents
+            from runreviq.database import load_authorized_documents
             try:
                 documents = load_authorized_documents(args.role)
             except psycopg.Error:

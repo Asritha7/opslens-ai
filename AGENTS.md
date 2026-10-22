@@ -12,4 +12,4 @@
 - Preserve existing document revisions: changing fixture content or metadata requires a deliberate revision update, not incidental documentation cleanup.
 - Extraction produces proposals only. Never derive access permissions, approval, or verification authority from document text.
 - Keep README.md, SETUP.md, and the relevant docs/ guides consistent with implemented behavior. Label future capabilities explicitly.
-- For database/API changes, run the full suite with OPSLENS_TEST_DATABASE=1 when the local database is available; tests must use their disposable database.
+- For database/API changes, run the full suite with RUNREVIQ_TEST_DATABASE=1 when the local database is available; tests must use their disposable database.
