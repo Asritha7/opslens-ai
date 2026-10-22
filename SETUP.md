@@ -99,6 +99,8 @@ The test command requires the local admin credential to create and remove its ow
 
 ## Local authenticated API
 
+This section describes demo-key mode. For Google login instead, follow [Google OIDC setup](docs/google-login.md); it preserves database setup and disables demo bearer access while configured.
+
 First complete database bootstrap and ingestion above. Install locked dependencies with `./uv-local sync --frozen`, then:
 
 ```sh
@@ -129,7 +131,7 @@ API contract:
 
 To revoke an individual key, remove its record from the private JSON file while preserving mode 600; new requests reload the file, so no restart is needed. Requests already authenticated may finish. To rotate a key, replace its token locally with `secrets.token_urlsafe(32)` and update the client that holds it. Never reuse database passwords as API tokens. An empty, malformed, missing, duplicate-identity, or overly readable credential file fails closed. There is no default/fallback key.
 
-This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, OIDC, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
+This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
 
 Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
 
@@ -196,6 +198,8 @@ The catalog advances only RB-050 and RB-051 to revision 2 to add reviewed citati
 The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate versions. A fresh database starts with the revisions present in the catalog, so it will not contain revision 1 of these two documents unless imported separately. Existing databases that have not ingested revision 2 continue to return explicitly incomplete citations for the legacy conflict. See [the citation guide](docs/citations.md).
 
 ## Local browser workspace
+
+For optional Google login, follow [the Google setup guide](docs/google-login.md). Google sessions survive a page reload until logout or expiry; the following key instructions apply to demo mode.
 
 After the database and API setup above, start `.venv/bin/python -m opslens.api serve` and open <http://127.0.0.1:8000/>. No frontend build or paid hosting is needed.
 

@@ -1,4 +1,4 @@
-"""Loopback-only demo API. Bearer credentials determine the database reader role."""
+"""Loopback API. Demo keys or Google sessions bind identities to reader roles."""
 import argparse
 import hashlib
 import json
@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Literal
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException, Path as ApiPath
+from fastapi import Depends, FastAPI, HTTPException, Request, Path as ApiPath
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,8 +18,10 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from opslens.database import load_authorized_documents, load_authorized_revision
 from opslens.selector import ROOT, ROLES, select
+from opslens.oidc import GoogleSessions, install_routes
 
 KEY_FILE = ROOT / '.local/api-keys.json'
+OIDC_FILE = ROOT / '.local/google-oidc.json'
 
 
 def initialize_keys(path=KEY_FILE):
@@ -64,9 +67,15 @@ class SelectionRequest(BaseModel):
 
 
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
-               revision_loader=load_authorized_revision):
+               revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None):
     app = FastAPI(title='OpsLens local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
+    # Mode is fixed at startup. Removing a configured file fails closed, not back
+    # to demo keys. Restart explicitly to change modes.
+    sessions = GoogleSessions(Path(oidc_file), oidc_provider) if oidc_file and Path(oidc_file).exists() else None
+    if sessions:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1'])
+    install_routes(app, sessions)
 
     @app.middleware('http')
     async def no_cache(request, call_next):
@@ -82,7 +91,9 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
         # Framework defaults echo invalid inputs; never reflect credentials or source text.
         return JSONResponse(status_code=422, content={'detail': 'Invalid request fields or values'})
 
-    def identity(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    def identity(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        if sessions:
+            return sessions.principal(request)
         unauthorized = HTTPException(401, 'Valid bearer credentials required',
                                      headers={'WWW-Authenticate': 'Bearer'})
         if credentials is None or len(credentials.credentials) > 256:
@@ -154,9 +165,12 @@ def main():
         print('Created owner-only credentials in .local/api-keys.json. Keep this file private.')
     else:
         try:
-            read_keys(KEY_FILE)
-        except (OSError, ValueError):
-            parser.exit(1, 'Valid owner-only credentials required; run init-keys first.\n')
+            if OIDC_FILE.exists():
+                GoogleSessions(OIDC_FILE).config()
+            else:
+                read_keys(KEY_FILE)
+        except (OSError, ValueError, HTTPException):
+            parser.exit(1, 'Valid owner-only Google configuration or demo keys required; see SETUP.md.\n')
         import uvicorn
         uvicorn.run(create_app(), host='127.0.0.1', port=8000, access_log=False,
                     proxy_headers=False)

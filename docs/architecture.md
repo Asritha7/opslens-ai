@@ -24,7 +24,7 @@ flowchart TD
 
 `documents` stores each document's current revision and allowed roles. `document_versions` stores immutable revisions of content and metadata with checksums. PostgreSQL row-level security filters both tables through the actual reader login. The platform, security, and intern accounts can select permitted rows but cannot write or assume other reader roles.
 
-The API derives the role from a bearer key. The CLI's `--role` flag is a trusted operator test input, not authentication. The machine owner controls all demo keys and database passwords. Administrative database access and filesystem access remain trusted; public fictional fixtures are not confidential data.
+The API derives the role from a demo bearer key or, in Google mode, from a verified Google subject and the current local role mapping. Google mode uses expiring server-side sessions and disables demo bearer access. See [Google login](google-login.md). The CLI's `--role` flag is a trusted operator test input, not authentication. The machine owner controls all demo keys and database passwords. Administrative database access and filesystem access remain trusted; public fictional fixtures are not confidential data.
 
 Version rows reject ordinary updates/deletes, but administrators can bypass protections. Permission changes apply to historical revisions too. Repeating an unchanged revision is a no-op; content/metadata edits require a new revision. Stale imports cannot move the current revision backward. Removing a catalog entry does not revoke its stored copy.
 
@@ -38,8 +38,8 @@ Extraction reads explicit Markdown fields and proposes values with provenance. I
 
 ## Implemented and remaining
 
-Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, authorized historical document retrieval, a browser workspace with cited-passage viewing, automated tests, and required CI.
+Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, an API supporting demo bearer keys or Google OIDC sessions, structured metadata proposals, actionable response fields, authorized historical document retrieval, a browser workspace with cited-passage viewing, automated tests, and required CI.
 
-Remaining: verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
+Remaining: production identity deployment, general account management, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
 
 See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), and [testing](testing.md).
