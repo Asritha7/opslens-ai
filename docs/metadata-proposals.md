@@ -4,7 +4,7 @@ See also [setup](../SETUP.md), [the API contract](api.md), and [the authoring te
 
 ## Extraction contract
 
-Run `.venv/bin/python -m opslens.extraction docs/runbook-template.md` to propose metadata from a UTF-8 Markdown file (maximum 1 MB). This trusted local operator command does not call the database, use an API key, call a model, or publish anything. Its output can contain source passages; keep output as private as the input document.
+Run `.venv/bin/python -m runreviq.extraction docs/runbook-template.md` to propose metadata from a UTF-8 Markdown file (maximum 1 MB). This trusted local operator command does not call the database, use an API key, call a model, or publish anything. Its output can contain source passages; keep output as private as the input document.
 
 The first extractor supports an explicit `## Applicability` section with one field per line:
 

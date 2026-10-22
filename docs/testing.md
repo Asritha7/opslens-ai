@@ -13,7 +13,7 @@ The ordinary run exercises extraction, selection, catalog validation, and API te
 
 ```sh
 docker compose up -d --wait db
-OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
+RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
 The suite currently contains 111 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
@@ -25,7 +25,7 @@ Coverage includes exact/multiline citation validation, stale fingerprints, inval
 Node.js 20 or later is needed only to run the JavaScript tests; there are no npm dependencies or frontend build step:
 
 ```sh
-node --check opslens/web/app.js
+node --check runreviq/web/app.js
 node --test tests/web.test.cjs
 ```
 

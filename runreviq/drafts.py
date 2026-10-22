@@ -6,8 +6,8 @@ import uuid
 import psycopg
 from psycopg.types.json import Jsonb
 
-from opslens.database import credentials
-from opslens.extraction import extract
+from runreviq.database import credentials
+from runreviq.extraction import extract
 
 MAX_BYTES = 1_000_000
 MAX_DRAFTS = 20

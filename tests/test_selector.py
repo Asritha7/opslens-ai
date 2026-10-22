@@ -1,7 +1,7 @@
 import copy
 import json
 import unittest
-from opslens.selector import ROOT, load_documents, select
+from runreviq.selector import ROOT, load_documents, select
 
 
 class SelectorTests(unittest.TestCase):

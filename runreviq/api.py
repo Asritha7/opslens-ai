@@ -18,10 +18,10 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
-from opslens.database import load_authorized_documents, load_authorized_revision
-from opslens.selector import ROOT, ROLES, select
-from opslens.oidc import GoogleSessions, install_routes
-from opslens.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES
+from runreviq.database import load_authorized_documents, load_authorized_revision
+from runreviq.selector import ROOT, ROLES, select
+from runreviq.oidc import GoogleSessions, install_routes
+from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES
 
 KEY_FILE = ROOT / '.local/api-keys.json'
 OIDC_FILE = ROOT / '.local/google-oidc.json'
@@ -72,7 +72,7 @@ class SelectionRequest(BaseModel):
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
                revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None,
                draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft):
-    app = FastAPI(title='OpsLens local API', docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title='Runreviq local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
     # Mode is fixed at startup. Removing a configured file fails closed, not back
     # to demo keys. Restart explicitly to change modes.
@@ -154,13 +154,13 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
 
     @app.get('/', include_in_schema=False)
     def workspace():
-        return FileResponse(ROOT / 'opslens/web/index.html', media_type='text/html')
+        return FileResponse(ROOT / 'runreviq/web/index.html', media_type='text/html')
 
     @app.get('/assets/{asset}', include_in_schema=False)
     def asset_file(asset: str):
         if asset not in ('app.js', 'app.css', 'theme.js'):
             raise HTTPException(404, 'Asset not found')
-        return FileResponse(ROOT / 'opslens/web' / asset,
+        return FileResponse(ROOT / 'runreviq/web' / asset,
                             media_type='text/javascript' if asset.endswith('.js') else 'text/css')
 
     @app.get('/health')
@@ -197,7 +197,7 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Manage the loopback-only OpsLens demo API')
+    parser = argparse.ArgumentParser(description='Manage the loopback-only Runreviq demo API')
     parser.add_argument('command', choices=['init-keys', 'serve'])
     args = parser.parse_args()
     if args.command == 'init-keys':

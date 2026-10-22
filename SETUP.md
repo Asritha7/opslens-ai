@@ -1,4 +1,4 @@
-# OpsLens local development setup
+# Runreviq local development setup
 
 The project has an isolated uv installation, managed Python runtime, and virtual environment.
 The commands below keep project tooling inside the repository and do not require replacing macOS system Python. Any separately installed user-level Python is independent of this project.
@@ -29,8 +29,8 @@ Do not delete `.tools/python` while using this virtual environment.
 Install uv from Astral's official installer into `.tools/bin`, without modifying shell profiles:
 
 ```sh
-curl -LsSf https://astral.sh/uv/0.13.1/install.sh -o /tmp/opslens-uv-install.sh
-UV_UNMANAGED_INSTALL="$PWD/.tools/bin" sh /tmp/opslens-uv-install.sh
+curl -LsSf https://astral.sh/uv/0.13.1/install.sh -o /tmp/runreviq-uv-install.sh
+UV_UNMANAGED_INSTALL="$PWD/.tools/bin" sh /tmp/runreviq-uv-install.sh
 ./uv-local venv --python 3.12.15 --managed-python .venv
 ./uv-local sync --frozen
 ```
@@ -83,8 +83,8 @@ p.chmod(0o600)
 PY
 
 docker compose up -d --wait db
-.venv/bin/python -m opslens.database bootstrap
-.venv/bin/python -m opslens.database ingest
+.venv/bin/python -m runreviq.database bootstrap
+.venv/bin/python -m runreviq.database ingest
 ```
 
 Bootstrap creates three non-superuser, read-only evidence readers and a separate restricted draft writer, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
@@ -92,8 +92,8 @@ Bootstrap creates three non-superuser, read-only evidence readers and a separate
 The admin credential is used for setup, ingestion, and test-database administration. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
 
 ```sh
-.venv/bin/python -m opslens.selector --source database --role intern --version 2.4.0 --environment production --key-rotation true
-OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m runreviq.selector --source database --role intern --version 2.4.0 --environment production --key-rotation true
+RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
 The test command requires the local admin credential to create and remove its own disposable database. Reader-account names are shared with the development database, but existing role passwords are not altered. Tests use the same credentials; all test documents live in the disposable database.
@@ -106,8 +106,8 @@ This section describes demo-key mode. For Google login instead, follow [Google O
 First complete database bootstrap and ingestion above. Install locked dependencies with `./uv-local sync --frozen`, then:
 
 ```sh
-.venv/bin/python -m opslens.api init-keys
-.venv/bin/python -m opslens.api serve
+.venv/bin/python -m runreviq.api init-keys
+.venv/bin/python -m runreviq.api serve
 ```
 
 `init-keys` creates three random demo credentials in `.local/api-keys.json` with file mode 600 (only your OS account can read/write). It never overwrites an existing file or prints tokens. The `.local/` directory is Git-ignored. Do not paste this file into issues, screenshots, commits, or chat.
@@ -117,9 +117,9 @@ The server binds only to `127.0.0.1:8000`. If that port is already in use, it ex
 From another terminal in this repository, try:
 
 ```sh
-.venv/bin/python -m opslens.client --persona platform --version 2.4.0 --environment production --key-rotation true
-.venv/bin/python -m opslens.client --persona platform --version 2.5.0 --environment production --key-rotation true
-.venv/bin/python -m opslens.client --persona intern --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.client --persona platform --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.client --persona platform --version 2.5.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.client --persona intern --version 2.4.0 --environment production --key-rotation true
 ```
 
 Expected: selected RB-042/RB-043; a conflict with no recommendation; insufficient authorized evidence. Use `--environment staging` with the intern key to retrieve its staging runbook. The client reads the secret internally; it never puts the token in shell arguments or output.
@@ -135,13 +135,13 @@ To revoke an individual key, remove its record from the private JSON file while 
 
 This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. Published evidence is read-only through the API. Private draft uploads use a separate restricted account; publication remains a trusted local CLI operation. The API does not read files as a fallback when the database is unavailable.
 
-Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
+Run `RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
 
 
 ## Extract and review metadata
 
 ```sh
-.venv/bin/python -m opslens.extraction docs/runbook-template.md
+.venv/bin/python -m runreviq.extraction docs/runbook-template.md
 ```
 
 This command needs neither PostgreSQL nor API credentials. It prints a proposal with source lines and a fingerprint, flags missing/ambiguous values, and never publishes it. Review is mandatory. Existing prose-only fixtures do not contain the structured fields and will report missing metadata. Follow [the extraction and review guide](docs/metadata-proposals.md) before transferring reviewed values into the catalog.
@@ -151,8 +151,8 @@ This command needs neither PostgreSQL nor API credentials. It prints a proposal 
 With the database running and ingested, these additional requests demonstrate a follow-up question and a metadata-review requirement:
 
 ```sh
-.venv/bin/python -m opslens.selector --source database --role platform --version 2.4.0 --environment production --key-rotation unknown
-.venv/bin/python -m opslens.selector --source database --role platform --version 2.6.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.selector --source database --role platform --version 2.4.0 --environment production --key-rotation unknown
+.venv/bin/python -m runreviq.selector --source database --role platform --version 2.6.0 --environment production --key-rotation true
 ```
 
 Results include messages, next steps, questions, review items, and conflict details. See [the API contract](docs/api.md) for fields and status meanings, and [testing and troubleshooting](docs/testing.md) for expected database logs.
@@ -176,7 +176,7 @@ With the API running, run this in another terminal from the repository root. It 
 .venv/bin/python - <<'PYTHON'
 import json
 from urllib.request import Request, urlopen
-from opslens.api import KEY_FILE, read_keys
+from runreviq.api import KEY_FILE, read_keys
 record = next(r for r in read_keys(KEY_FILE) if r['subject'] == 'demo-platform')
 request = Request('http://127.0.0.1:8000/v1/documents/RB-042/revisions/1',
                   headers={'Authorization': 'Bearer ' + record['token']})
@@ -193,8 +193,8 @@ The response includes stored content, title, revision, checksum, and whether it 
 The catalog advances only RB-050 and RB-051 to revision 2 to add reviewed citations; their Markdown text is unchanged. To publish these additions to an existing database, run:
 
 ```sh
-.venv/bin/python -m opslens.database ingest
-.venv/bin/python -m opslens.selector --source database --role platform --version 2.5.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.database ingest
+.venv/bin/python -m runreviq.selector --source database --role platform --version 2.5.0 --environment production --key-rotation true
 ```
 
 The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate versions. A fresh database starts with the revisions present in the catalog, so it will not contain revision 1 of these two documents unless imported separately. Existing databases that have not ingested revision 2 continue to return explicitly incomplete citations for the legacy conflict. See [the citation guide](docs/citations.md).
@@ -203,7 +203,7 @@ The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate v
 
 For optional Google login, follow [the Google setup guide](docs/google-login.md). Google sessions survive a page reload until logout or expiry; the following key instructions apply to demo mode.
 
-After the database and API setup above, start `.venv/bin/python -m opslens.api serve` and open <http://127.0.0.1:8000/>. No frontend build or paid hosting is needed.
+After the database and API setup above, start `.venv/bin/python -m runreviq.api serve` and open <http://127.0.0.1:8000/>. No frontend build or paid hosting is needed.
 
 Open the private `.local/api-keys.json` file locally and copy the token for the intended demo identity into **Access key**. Do not share the file or put its contents in screenshots. Connect, enter the service/version/environment, and select **Find applicable guidance**. The role comes from the server's key record; the browser cannot choose it. Reloading or selecting **Disconnect** clears the page's credential and evidence.
 
@@ -211,12 +211,12 @@ See [the browser walkthrough and authentication boundaries](docs/web-interface.m
 
 ## Connection refused in the browser
 
-`ERR_CONNECTION_REFUSED` at 127.0.0.1:8000 means no API is accepting the connection. Start `.venv/bin/python -m opslens.api serve` from the repository and leave that terminal running, then open `http://127.0.0.1:8000/`. Docker runs PostgreSQL, not the Python API. The `/auth/google/callback` address is only a return endpoint for a login started through the workspace; do not open it as the home page. Google login additionally requires the private configuration described in [Google setup](docs/google-login.md).
+`ERR_CONNECTION_REFUSED` at 127.0.0.1:8000 means no API is accepting the connection. Start `.venv/bin/python -m runreviq.api serve` from the repository and leave that terminal running, then open `http://127.0.0.1:8000/`. Docker runs PostgreSQL, not the Python API. The `/auth/google/callback` address is only a return endpoint for a login started through the workspace; do not open it as the home page. Google login additionally requires the private configuration described in [Google setup](docs/google-login.md).
 
 Use the header Theme control for System, Light, or Dark appearance. Only this preference is saved in browser storage.
 
 ## Private Markdown drafts
 
-For an existing installation, rerun the credential-generation block under “Database schema, ingestion, and restricted readers” to add only the missing `DRAFTS_PASSWORD`. Run `.venv/bin/python -m opslens.database bootstrap` to apply migration 002. Existing credentials, published revisions, and document permissions are preserved. Restart the API to load the new routes (Google sessions will require sign-in again).
+For an existing installation, rerun the credential-generation block under “Database schema, ingestion, and restricted readers” to add only the missing `DRAFTS_PASSWORD`. Run `.venv/bin/python -m runreviq.database bootstrap` to apply migration 002. Existing credentials, published revisions, and document permissions are preserved. Restart the API to load the new routes (Google sessions will require sign-in again).
 
 After signing in with an assigned role, scroll to **Add a document for review**. Choose a UTF-8 `.md` file up to 1,000,000 bytes and select **Save draft and preview**. Use `docs/runbook-template.md` as a fictional example. **Load my drafts** reopens saved previews. See [draft intake](docs/drafts.md) for privacy, limits, and the distinction between extraction and publication.

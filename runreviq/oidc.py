@@ -18,7 +18,7 @@ import jwt
 from fastapi import HTTPException, Request as WebRequest
 from fastapi.responses import RedirectResponse
 
-from opslens.selector import ROLES
+from runreviq.selector import ROLES
 
 ORIGIN = 'http://127.0.0.1:8000'
 CALLBACK = ORIGIN + '/auth/google/callback'
@@ -26,8 +26,8 @@ ISSUER = 'https://accounts.google.com'
 AUTH_URL = ISSUER + '/o/oauth2/v2/auth'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs'
-SESSION_COOKIE = 'opslens_session'
-FLOW_COOKIE = 'opslens_login'
+SESSION_COOKIE = 'runreviq_session'
+FLOW_COOKIE = 'runreviq_login'
 
 
 def read_config(path):
@@ -98,7 +98,7 @@ class GoogleSessions:
         return hashlib.sha256(value.encode()).hexdigest()
 
     def check_origin(self, request):
-        if request.headers.get('origin') != ORIGIN or request.headers.get('x-opslens-request') != '1':
+        if request.headers.get('origin') != ORIGIN or request.headers.get('x-runreviq-request') != '1':
             raise HTTPException(403, 'Same-origin request required')
 
     def start(self, request):
@@ -160,7 +160,7 @@ class GoogleSessions:
             raise HTTPException(401, 'Sign in with Google to continue')
         role = config['allowed_subjects'].get(session['subject'])
         if require_role and role is None:
-            raise HTTPException(403, 'This Google account has no assigned OpsLens role')
+            raise HTTPException(403, 'This Google account has no assigned Runreviq role')
         if request.method not in ('GET', 'HEAD'):
             self.check_origin(request)
         return {'subject': session['subject'], 'role': role}
@@ -208,7 +208,7 @@ def install_routes(app, sessions):
 def main():
     """Prompt locally, keeping credentials out of shell arguments and history."""
     import getpass
-    from opslens.selector import ROOT
+    from runreviq.selector import ROOT
     path = ROOT / '.local/google-oidc.json'
     if path.exists():
         raise SystemExit('Google configuration already exists; left unchanged.')

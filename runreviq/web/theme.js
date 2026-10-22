@@ -1,10 +1,10 @@
 'use strict';
 (() => {
   // Runs before styles load to avoid a light flash for saved dark preferences.
-  const key = 'opslens-theme';
+  const key = 'runreviq-theme';
   let preference = 'system';
   try {
-    const saved = localStorage.getItem(key);
+    const saved = localStorage.getItem(key) || localStorage.getItem('opslens-theme');
     if (['system', 'light', 'dark'].includes(saved)) preference = saved;
   } catch (_) { /* Theme remains usable when browser storage is unavailable. */ }
   document.documentElement.dataset.theme = preference;

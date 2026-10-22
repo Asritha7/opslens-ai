@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from opslens.selector import version
+from runreviq.selector import version
 
 FIELDS = ('service', 'environment', 'version_min', 'version_max_exclusive', 'key_rotation_enabled')
 

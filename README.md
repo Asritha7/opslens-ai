@@ -1,4 +1,4 @@
-# OpsLens AI — local prototype
+# Runreviq — local prototype
 
 Select applicable fictional operational guidance using explicit metadata, before adding AI generation.
 
@@ -21,9 +21,9 @@ After completing [Python setup](SETUP.md), run from the repository root:
 
 ```sh
 ./uv-local sync --frozen
-.venv/bin/python -m opslens.selector --role platform --version 2.4.0 --environment production --key-rotation true
-.venv/bin/python -m opslens.selector --role platform --version 2.5.0 --environment production --key-rotation true
-.venv/bin/python -m opslens.selector --role intern --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.selector --role platform --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.selector --role platform --version 2.5.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.selector --role intern --version 2.4.0 --environment production --key-rotation true
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -60,10 +60,10 @@ After generating the local reader credentials as described in `SETUP.md`:
 
 ```sh
 docker compose up -d --wait db
-.venv/bin/python -m opslens.database bootstrap
-.venv/bin/python -m opslens.database ingest
-.venv/bin/python -m opslens.selector --source database --role platform --version 2.4.0 --environment production --key-rotation true
-OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m runreviq.database bootstrap
+.venv/bin/python -m runreviq.database ingest
+.venv/bin/python -m runreviq.selector --source database --role platform --version 2.4.0 --environment production --key-rotation true
+RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
 Database integration tests create and remove a uniquely named `opslens_test_*` database. They never truncate the development database. Without the opt-in variable, integration tests are skipped; ordinary catalog and selector tests still run.
@@ -79,10 +79,10 @@ The commands below use demo mode. [Google mode](docs/google-login.md) replaces d
 The implemented API is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A demo bearer key, or a Google session when configured, determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
 
 ```sh
-.venv/bin/python -m opslens.api init-keys  # once; refuses to overwrite existing keys
-.venv/bin/python -m opslens.api serve
+.venv/bin/python -m runreviq.api init-keys  # once; refuses to overwrite existing keys
+.venv/bin/python -m runreviq.api serve
 # In a second terminal, from this repository:
-.venv/bin/python -m opslens.client --persona platform --version 2.4.0 --environment production --key-rotation true
+.venv/bin/python -m runreviq.client --persona platform --version 2.4.0 --environment production --key-rotation true
 ```
 
 The operator client reads the selected key from `.local/api-keys.json` and sends it in the Authorization header; the persona is not sent as a request field. The operator holds all demo keys and can try all personas. Keys are random, stored owner-only, excluded from Git, and never printed by setup. See `SETUP.md` for revocation and limitations. No paid authentication provider is used.
@@ -92,7 +92,7 @@ The operator client reads the selected key from `.local/api-keys.json` and sends
 A local extractor now reads explicit Markdown applicability fields and produces reviewable metadata with source-line provenance. Try:
 
 ```sh
-.venv/bin/python -m opslens.extraction docs/runbook-template.md
+.venv/bin/python -m runreviq.extraction docs/runbook-template.md
 ```
 
 Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Extraction itself does not change published revisions.
@@ -110,3 +110,7 @@ See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a loc
 ## Private draft intake
 
 Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader, independently of published document permissions. They never enter guidance selection. This first slice has no editing, approval, or publishing action. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
+
+## Project rename
+
+This project is now **Runreviq** (formerly OpsLens AI). Repository: https://github.com/Asritha7/runreviq. Python commands use `python -m runreviq.<module>`; see [rename and compatibility notes](docs/renaming.md) before updating an existing checkout.

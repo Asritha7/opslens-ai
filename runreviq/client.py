@@ -4,8 +4,8 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from opslens.api import KEY_FILE, read_keys
-from opslens.selector import ROLES
+from runreviq.api import KEY_FILE, read_keys
+from runreviq.selector import ROLES
 
 
 def main():
