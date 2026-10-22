@@ -16,13 +16,26 @@ docker compose up -d --wait db
 OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The suite currently contains 72 tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
+The suite currently contains 74 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
 
 Coverage includes exact/multiline citation validation, stale fingerprints, invalid citation batches, legacy evidence, hidden quotations, version boundaries, permissions, conflicts, missing context, safe explanations, source provenance, ambiguous extraction, authority-field rejection, transactional ingestion, immutable revisions, raw database reader restrictions, bearer-key validation/revocation, authorized revision retrieval, historical access revocation, identical missing/denied responses, and API-to-database integration. File/database parity covers 72 role/version/environment/rotation combinations.
 
+## Browser checks
+
+Node.js 20 or later is needed only to run the JavaScript tests; there are no npm dependencies or frontend build step:
+
+```sh
+node --check opslens/web/app.js
+node --test tests/web.test.cjs
+```
+
+The five tests execute the production script against a small mocked DOM and fetch implementation. They cover credential handling, disconnect and stale-response races, safe text rendering, historical revision labels, clearing failed document loads, and 401 resets. These are interaction-logic tests, not full browser automation.
+
+Manual browser checks against the local database covered sign-in, missing-context follow-up, selected guidance, conflict quotes and highlighted source lines, metadata review, intern insufficient evidence, and reload clearing access. A 390px viewport had no horizontal page overflow. Manual checks supplement the automated suite.
+
 ## GitHub workflow
 
-GitHub Actions runs the full suite and a pgvector smoke check on pull requests into `main` and pushes to `main`. It installs locked dependencies and uses a disposable PostgreSQL service with CI-only credentials. The required job is named `Selector and PostgreSQL tests`; keep that name aligned with branch protection.
+GitHub Actions runs the full Python suite, five JavaScript interaction tests, and a pgvector smoke check on pull requests into `main` and pushes to `main`. It installs locked dependencies and uses a disposable PostgreSQL service with CI-only credentials. The required job is named `Selector and PostgreSQL tests`; keep that name aligned with branch protection.
 
 Main requires pull requests, an up-to-date branch with passing required checks, and resolved conversations. Protection applies to admins; force pushes/deletion are blocked. The solo-developer configuration requires zero additional approving reviews. Use descriptive commits on focused branches and merge only with user authorization. Never bypass checks to merge.
 

@@ -154,6 +154,24 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {'detail': 'Evidence store unavailable'})
 
+    def test_browser_shell_and_assets_have_security_headers(self):
+        for url, media in (('/', 'text/html'), ('/assets/app.js', 'text/javascript'), ('/assets/app.css', 'text/css')):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(media, response.headers['content-type'])
+            self.assertEqual(response.headers['cache-control'], 'no-store')
+            self.assertIn("frame-ancestors 'none'", response.headers['content-security-policy'])
+            self.assertIn("script-src 'self'", response.headers['content-security-policy'])
+            self.assertEqual(response.headers['referrer-policy'], 'no-referrer')
+            for record in self.records:
+                self.assertNotIn(record['token'], response.text)
+        self.loader.assert_not_called()
+        self.revision_loader.assert_not_called()
+
+    def test_browser_assets_are_allowlisted(self):
+        for url in ('/assets/api-keys.json', '/assets/.env', '/assets/api.py', '/assets/index.html'):
+            self.assertEqual(self.client.get(url).status_code, 404)
+
     def test_health_is_liveness_only(self):
         self.assertEqual(self.client.get('/health').json(), {'status': 'ok'})
         self.loader.assert_not_called()

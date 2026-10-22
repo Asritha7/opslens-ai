@@ -6,7 +6,7 @@ OpsLens is a local operational-evidence prototype. It selects applicable fiction
 flowchart TD
     Source["Markdown sources and catalog"] --> Ingest["Trusted ingestion CLI"]
     Ingest --> DB[("PostgreSQL in Docker")]
-    Client["Local demo client"] --> API["FastAPI on 127.0.0.1:8000"]
+    Client["Local browser workspace or CLI client"] --> API["FastAPI on 127.0.0.1:8000"]
     Keys["Private demo keys"] --> API
     API -->|"Assigned reader account"| DB
     DB -->|"Authorized current metadata"| API
@@ -38,8 +38,8 @@ Extraction reads explicit Markdown fields and proposes values with provenance. I
 
 ## Implemented and remaining
 
-Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, authorized historical document retrieval, automated tests, and required CI.
+Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, bearer-authenticated API, structured metadata proposals, actionable response fields, authorized historical document retrieval, a browser workspace with cited-passage viewing, automated tests, and required CI.
 
-Remaining: browser UI, verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
+Remaining: verified human login/OIDC, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
 
 See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), and [testing](testing.md).

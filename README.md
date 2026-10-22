@@ -6,6 +6,7 @@ Select applicable fictional operational guidance using explicit metadata, before
 
 - [Setup and local commands](SETUP.md)
 - [Architecture and current scope](docs/architecture.md)
+- [Browser workspace and access controls](docs/web-interface.md)
 - [API request and response contract](docs/api.md)
 - [Metadata extraction and review](docs/metadata-proposals.md)
 - [Validated claim citations](docs/citations.md)
@@ -93,7 +94,7 @@ A local extractor now reads explicit Markdown applicability fields and produces 
 
 Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Extraction itself does not change published revisions.
 
-Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. Conflict documents now include exact passages when citations are available; a browser interface remains future work.
+Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. Conflict documents now include exact passages when citations are available; the local browser workspace displays these outcomes and opens cited passages.
 
 See [metadata proposals and result explanations](docs/metadata-proposals.md) for the supported format, review workflow, and response contract.
 
@@ -101,4 +102,4 @@ See [metadata proposals and result explanations](docs/metadata-proposals.md) for
 
 Authenticated clients can call `GET /v1/documents/{document_id}/revisions/{revision}` to retrieve stored Markdown, title, checksum, and current-revision information. The database enforces current permissions for historical revisions too. Missing documents, missing revisions, and inaccessible revisions return the same 404 response. Reading a document does not mean it is recommended for the current situation.
 
-See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). See [claim citations](docs/citations.md) for exact conflict passages. A document viewer remains future work.
+See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a local example](SETUP.md#read-a-document-revision). See [claim citations](docs/citations.md) for exact conflict passages. The browser viewer displays stored revisions as numbered plain text and highlights matching cited passages.

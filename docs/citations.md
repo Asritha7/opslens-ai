@@ -28,6 +28,6 @@ Database selection validates citations against the stored content after row-leve
 
 The conflict response attaches the quote, lines, content hash, document ID, revision, and rule to each cited document. The existing authenticated revision endpoint retrieves the full corresponding content. Current access revocation blocks subsequent reads of old and new evidence; previously delivered text cannot be retracted.
 
-Legacy claims without citations are supported and marked `citation_status: incomplete`. Conflict detection continues and recommendations remain withheld. No passage is invented to fill a missing citation. Validity means exact source correspondence, not model-based semantic verification. Quotes are untrusted document text and must be safely rendered by any future UI.
+Legacy claims without citations are supported and marked `citation_status: incomplete`. Conflict detection continues and recommendations remain withheld. No passage is invented to fill a missing citation. Validity means exact source correspondence, not model-based semantic verification. The browser workspace treats quotes and source documents as untrusted plain text, using textContent rather than HTML rendering. It highlights cited lines only when the fetched revision and passage match.
 
 See [API response fields](api.md#conflict-source-citations), [setup](../SETUP.md#publish-and-inspect-conflict-citations), and [testing](testing.md).
