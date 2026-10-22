@@ -1,17 +1,19 @@
 # Local API contract
 
-Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:8000`. The supplied server command binds only to loopback. Generated API documentation/OpenAPI endpoints and CORS access are disabled. No production login, TLS, rate limiting, or automatic key expiry is implemented.
+Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:8000`. The supplied server command binds only to loopback. Generated API documentation/OpenAPI endpoints and CORS access are disabled. Optional [Google OIDC login](google-login.md) uses local server-side sessions; production deployment, TLS, rate limiting, and automatic demo-key expiry remain unimplemented.
 
 ## Endpoints and authentication
+
+Google mode uses an HttpOnly session cookie and disables bearer keys. Cookie-authenticated POSTs require `Origin: http://127.0.0.1:8000` and `X-OpsLens-Request: 1`. See [the authentication endpoint contract](google-login.md#endpoint-contract).
 
 | Endpoint | Credential | Response |
 |---|---|---|
 | `GET /health` | None | `{"status":"ok"}`; process liveness only |
-| `GET /v1/me` | Bearer key | `subject` and assigned `role` |
-| `POST /v1/select` | Bearer key | Selection result below |
-| `GET /v1/documents/{document_id}/revisions/{revision}` | Bearer key | Stored document revision under current access policy |
+| `GET /v1/me` | Bearer key or Google session | `subject` and assigned `role` |
+| `POST /v1/select` | Bearer key or Google session | Selection result below |
+| `GET /v1/documents/{document_id}/revisions/{revision}` | Bearer key or Google session | Stored document revision under current access policy |
 
-Protected requests use `Authorization: Bearer <local-key>`. Use the supplied `opslens.client` command to avoid putting keys into shell history. The private key file is plaintext with owner-only permissions and is Git-ignored. Records map a unique subject and token to platform, security, or intern. The server reloads it per request; revocation applies to subsequent authentication, not already-running requests.
+In demo mode, protected requests use `Authorization: Bearer <local-key>`. Use the supplied `opslens.client` command to avoid putting keys into shell history. The private key file is plaintext with owner-only permissions and is Git-ignored. Records map a unique subject and token to platform, security, or intern. The server reloads it per request; revocation applies to subsequent authentication, not already-running requests.
 
 ## Selection request
 
@@ -50,7 +52,7 @@ All four domain outcomes return HTTP 200. A conflict is a completed evaluation, 
 | `recommended_documents` | Matching IDs only for `selected`; empty otherwise |
 | `evidence` | Document ID, revision, and source path for applicable documents |
 
-Review reasons are `metadata_unverified`, `missing_environment`, `missing_version_min`, and `missing_version_max_exclusive`. Missing context and metadata review can coexist. Follow-up answers are submitted in a new request; there is no conversation/session memory.
+Review reasons are `metadata_unverified`, `missing_environment`, `missing_version_min`, and `missing_version_max_exclusive`. Missing context and metadata review can coexist. Follow-up answers are submitted in a new request; there is no conversation history.
 
 For example, a version-2.5.0 production query with key rotation enabled under the platform identity reports `disable_key_rotation` with `must` from RB-050 and `must_not` from RB-051. These are catalog rules, not direct source quotations. A version-2.4.0 query with unknown key rotation asks whether rotation is enabled. An intern production query reports insufficient evidence without identifying restricted documents.
 
@@ -70,7 +72,7 @@ Handled errors return a generic `detail` string without echoing credentials, inv
 
 ## Document revision retrieval
 
-`GET /v1/documents/RB-042/revisions/1` requires the same bearer credential as selection. The document ID must match uppercase letters, a hyphen, and digits (`[A-Z]+-[0-9]+`). Revision must be an integer from 1 through 2147483647. Invalid path values return 422; valid requests with missing or inaccessible evidence return `404 {"detail":"Document revision not found"}`. No separate existence check uses administrator access.
+`GET /v1/documents/RB-042/revisions/1` requires the same authentication as selection. The document ID must match uppercase letters, a hyphen, and digits (`[A-Z]+-[0-9]+`). Revision must be an integer from 1 through 2147483647. Invalid path values return 422; valid requests with missing or inaccessible evidence return `404 {"detail":"Document revision not found"}`. No separate existence check uses administrator access.
 
 Successful JSON responses contain:
 

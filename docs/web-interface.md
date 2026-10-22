@@ -1,10 +1,10 @@
 # Local evidence workspace
 
-The FastAPI service serves the browser interface at `http://127.0.0.1:8000/`. HTML, CSS, and JavaScript are bundled in this repository, with no frontend build, external scripts, model calls, or hosted authentication service.
+The FastAPI service serves the browser interface at `http://127.0.0.1:8000/`. HTML, CSS, and JavaScript are bundled in this repository, with no frontend build, external scripts, or model calls. Optional Google login contacts Google from the backend and redirects the browser to Google.
 
 ## Walkthrough
 
-1. Complete [setup](../SETUP.md#local-browser-workspace), start the API, and connect using a local demo key.
+1. Complete [setup](../SETUP.md#local-browser-workspace), start the API, and connect using a local demo key or configured Google login.
 2. Enter service, software version, environment, and known key-rotation state.
 3. Read the result and next steps. Missing context offers a follow-up question; missing or unverified metadata shows review reasons. Insufficient evidence does not reveal restricted documents.
 4. Conflicts show the opposing catalog rules and available exact source quotations. No recommendation is given while a conflict remains.
@@ -12,13 +12,15 @@ The FastAPI service serves the browser interface at `http://127.0.0.1:8000/`. HT
 
 For platform / identity-service / production, version 2.4.0 with unknown rotation asks a follow-up; enabled rotation selects guidance. Version 2.5.0 with enabled rotation shows a conflict. Version 2.6.0 shows metadata needing review. The intern identity has insufficient authorized production evidence for 2.4.0.
 
-## Authentication: which demo identity is making the request?
+## Authentication: which identity is making the request?
+
+Optional [Google OIDC mode](google-login.md) verifies a Google identity and uses an HttpOnly server-session cookie. Reload restores a valid session; Disconnect revokes it. Roles are assigned separately by the operator. The following paragraphs describe demo-key mode.
 
 The method is an opaque bearer API key, sent in the `Authorization: Bearer ...` header. The server reads its owner-only `.local/api-keys.json` configuration and maps a matching key to a subject and role. Keys are random and stored in plaintext in this Git-ignored, mode-600 file. SHA-256 digests are compared using a constant-time comparison during authentication; this is not hashed-at-rest key storage.
 
 The browser validates the key with `/v1/me` and retains it only in JavaScript memory. It does not write the key to localStorage, sessionStorage, cookies, URLs, or source files. The input clears on submission. Reload, disconnect, page exit, or an authenticated 401 clears access and displayed evidence. Late responses from an old session are discarded. The application requests autocomplete off; browser/password-manager behavior remains outside its control.
 
-Removing a key record revokes subsequent authenticated requests; already authenticated requests may complete. Keys have no expiry. This does not verify a human account: the local operator owns every demo identity. There is no password login, JWT, OAuth/OIDC, SSO, or MFA.
+Removing a key record revokes subsequent authenticated requests; already authenticated requests may complete. Keys have no expiry. This does not verify a human account: the local operator owns every demo identity. Demo mode has no password login or MFA; Google mode validates JWT ID tokens through OIDC and does not issue its own JWT access tokens.
 
 ## Authorization: which evidence can that identity read?
 
@@ -28,7 +30,7 @@ Missing and denied revisions both return 404. Access changes govern subsequent r
 
 ```mermaid
 flowchart LR
-    Browser[Browser: key in memory] -->|Bearer key| Auth[API authenticates key]
+    Browser[Browser: demo key or session cookie] --> Auth[API authenticates identity]
     Auth --> Identity[Server-assigned subject and role]
     Identity --> Reader[Restricted database login]
     Reader --> RLS[PostgreSQL row-level security]
@@ -38,6 +40,10 @@ flowchart LR
 
 ## Browser boundaries
 
-The public shell contains no credentials or evidence. Only two allowlisted assets are served. Evidence requests stay on the same origin and reject redirects. Responses use no-store, nosniff, no-referrer, and a restrictive Content Security Policy. Source text and quotations use textContent, so Markdown and HTML are displayed as text rather than executed. The UI clears a prior document before fetching another one.
+The public shell contains no credentials or evidence. Only three allowlisted assets are served. Evidence requests stay on the same origin and reject redirects. Responses use no-store, nosniff, no-referrer, and a restrictive Content Security Policy. Source text and quotations use textContent, so Markdown and HTML are displayed as text rather than executed. The UI clears a prior document before fetching another one.
 
 This is a loopback-only prototype without TLS, rate limiting, production identity management, or audit history. Public fictional fixture files are not confidential. The interface is read-only: metadata approval, ingestion, and permission changes remain trusted operator tasks. There is no general chat, AI generation, semantic search, or automatic remediation.
+
+## Appearance
+
+The header provides System, Light, and Dark themes. System follows the operating-system color preference, including changes while the page is open. An explicit choice is remembered in browser localStorage under `opslens-theme`; no credentials are saved there. If browser storage is blocked, the theme still works for the current page. Dark colors cover forms, status notices, conflict quotations, and citation highlights.

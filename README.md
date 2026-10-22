@@ -45,9 +45,9 @@ Nine manually authored Markdown documents live in `datasets/northstar`. `catalog
 
 The CLI defaults to local files. After the database setup below, `--source database` reads the current stored revisions through separate read-only database accounts with row-level security. Ingestion validates the local catalog, saves Markdown content and metadata checksums, and publishes the whole batch in one transaction. Repeating the same revision adds no duplicate; changing its content or metadata requires a new revision. Permissions remain current policy and can change without rewriting historical evidence. A revoked document has no reader access, including to old revisions.
 
-CLI roles remain explicit test inputs. The local HTTP API authenticates bearer keys and derives the reader role from an owner-only server configuration; callers cannot supply their own role. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. The three demo keys map to named demo identities, not verified human accounts. OIDC and user registration are not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
+CLI roles remain explicit test inputs. The local HTTP API authenticates bearer keys and derives the reader role from an owner-only server configuration; callers cannot supply their own role. Each persona has a different database login; the database prevents that login from reading another persona's restricted rows or modifying documents. The local operator owns all three passwords and can choose any persona. The three demo keys map to named demo identities, not verified human accounts. Optional Google OIDC login maps verified Google subjects to operator-assigned roles; see [Google login setup](docs/google-login.md). Self-service role assignment is not implemented. The restricted fixtures are fictional and visible to anyone with filesystem access.
 
-Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; authorized revision-content retrieval is available through the API; manually authored claim citations are validated against exact source lines and content fingerprints. There is no saved-answer history, OIDC, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
+Conflict rules are manually authored fixtures, not semantic conflict detection. Evidence references identify a file and revision. Stored versions include a checksum of their content and metadata; authorized revision-content retrieval is available through the API; manually authored claim citations are validated against exact source lines and content fingerprints. There is no saved-answer history, LLM, embedding generation, live telemetry, or action execution. The software-version input is provided by the caller, not verified against a live service. No effective-date policy is implemented in this slice.
 
 Tests are development regression checks, not a held-out benchmark or a security guarantee. No paid service is used.
 
@@ -73,7 +73,9 @@ This is synchronous local ingestion, not the future worker/job pipeline. The cat
 
 ## Authenticated local API
 
-The implemented API is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A bearer key determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
+The commands below use demo mode. [Google mode](docs/google-login.md) replaces demo keys with browser login and server-side sessions.
+
+The implemented API is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A demo bearer key, or a Google session when configured, determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
 
 ```sh
 .venv/bin/python -m opslens.api init-keys  # once; refuses to overwrite existing keys
@@ -94,7 +96,7 @@ A local extractor now reads explicit Markdown applicability fields and produces 
 
 Missing, invalid, or ambiguous values are flagged rather than guessed. Every proposal requires review; permissions, approval, and verification are assigned separately by the trusted operator. This first extractor supports structured Markdown, not arbitrary prose or AI extraction, and does not publish proposals automatically. Extraction itself does not change published revisions.
 
-Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. Conflict documents now include exact passages when citations are available; the local browser workspace displays these outcomes and opens cited passages.
+Selection results now include a readable `message`, `next_steps`, missing-context `questions`, metadata `review_items`, and `conflict_details` describing opposing catalog rules and document references. These fields are available through the API and CLI. The original result fields remain available. Conflict documents now include exact passages when citations are available; the local browser workspace displays these outcomes and opens cited passages. Its System, Light, and Dark themes remember your appearance preference.
 
 See [metadata proposals and result explanations](docs/metadata-proposals.md) for the supported format, review workflow, and response contract.
 

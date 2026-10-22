@@ -25,7 +25,7 @@ class ApiTests(unittest.TestCase):
         self.records = read_keys(self.path)
         self.loader = Mock(return_value=load_documents())
         self.revision_loader = Mock(return_value=None)
-        self.client = TestClient(create_app(key_file=self.path, document_loader=self.loader, revision_loader=self.revision_loader))
+        self.client = TestClient(create_app(oidc_file=None, key_file=self.path, document_loader=self.loader, revision_loader=self.revision_loader))
         self.addCleanup(self.client.close)
 
     def headers(self, role='platform'):
@@ -155,7 +155,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json(), {'detail': 'Evidence store unavailable'})
 
     def test_browser_shell_and_assets_have_security_headers(self):
-        for url, media in (('/', 'text/html'), ('/assets/app.js', 'text/javascript'), ('/assets/app.css', 'text/css')):
+        for url, media in (('/', 'text/html'), ('/assets/app.js', 'text/javascript'), ('/assets/app.css', 'text/css'), ('/assets/theme.js', 'text/javascript')):
             response = self.client.get(url)
             self.assertEqual(response.status_code, 200)
             self.assertIn(media, response.headers['content-type'])

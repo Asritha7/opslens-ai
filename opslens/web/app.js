@@ -1,6 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
+  let authMode = 'loading';
   let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null;
   const node = (tag, text, className) => {
     const item = document.createElement(tag);
@@ -17,26 +18,30 @@
   }
   function reset(message = 'Disconnected. Enter a key to reconnect.') {
     epoch++; querySequence++; token = ''; lastQuery = null;
-    $('key').value = ''; $('query-fields').disabled = true; $('access-form').hidden = false;
-    $('disconnect').hidden = true; $('identity').textContent = 'Connect with a local demo key. Your role is assigned by the server.';
+    $('key').value = ''; $('query-fields').disabled = true; $('access-form').hidden = authMode !== 'demo'; $('google-access').hidden = authMode !== 'google';
+    $('disconnect').hidden = true; $('identity').textContent = authMode === 'google' ? 'Sign in with Google. Access is assigned by OpsLens.' : 'Connect with a local demo key. Your role is assigned by the server.';
     $('access-status').textContent = message; $('result').replaceChildren(); clearViewer();
     $('query-status').textContent = 'Connect and describe your situation to begin.';
     $('connect').disabled = false; $('submit-query').disabled = false;
   }
   async function request(path, options = {}, credential = token) {
-    const response = await fetch(path, {...options, cache: 'no-store', credentials: 'omit', redirect: 'error',
-      headers: {'Authorization': `Bearer ${credential}`, ...(options.body ? {'Content-Type': 'application/json'} : {})}});
+    const response = await fetch(path, {...options, cache: 'no-store', credentials: authMode === 'google' ? 'same-origin' : 'omit', redirect: 'error',
+      headers: {...(authMode === 'google' ? {'X-OpsLens-Request':'1'} : {'Authorization': `Bearer ${credential}`}), ...(options.body ? {'Content-Type': 'application/json'} : {})}});
     if (!response.ok) {
-      const error = new Error(response.status === 401 ? 'Access expired or key invalid. Reconnect to continue.' :
+      const error = new Error(response.status === 401 ? 'Access expired or credentials missing. Reconnect to continue.' :
+        response.status === 403 ? 'Your account has no permitted role, or this request was rejected. Reconnect or contact the operator.' :
         response.status === 404 ? 'This revision is unavailable or you no longer have access.' :
         response.status === 422 ? 'Check the service, version, environment, and key-rotation values.' :
         'The service is unavailable. Check the local server and database, then retry.');
       error.status = response.status; throw error;
     }
-    return response.json();
+    return response.status === 204 ? null : response.json();
   }
   function fail(error, target) {
-    if (error.status === 401) reset(error.message);
+    if (error.status === 401 || error.status === 403) {
+      reset(error.message);
+      if (error.status === 403 && authMode === 'google') $('disconnect').hidden = false;
+    }
     else $(target).textContent = error.status ? error.message : 'Could not reach the local service. Check that it is running and retry.';
   }
   $('access-form').addEventListener('submit', async event => {
@@ -51,9 +56,53 @@
     } catch (error) { if (generation === epoch) fail(error, 'access-status'); }
     finally { if (generation === epoch) $('connect').disabled = false; }
   });
-  $('disconnect').addEventListener('click', () => reset());
+  $('disconnect').addEventListener('click', async () => {
+    const google = authMode === 'google'; reset('Disconnected.');
+    if (google) {
+      try { await request('/auth/logout', {method:'POST'}); }
+      catch (_) { $('access-status').textContent = 'Could not confirm server logout. Your session may still be active; retry Disconnect.'; $('disconnect').hidden = false; }
+    }
+  });
   window.addEventListener('pagehide', () => reset());
   $('close-viewer').addEventListener('click', clearViewer);
+
+  async function initializeAccess() {
+    const generation = epoch;
+    try {
+      const response = await fetch('/auth/config', {cache:'no-store', credentials:'omit', redirect:'error'});
+      if (!response.ok) throw new Error('Configuration unavailable');
+      const config = await response.json();
+      if (generation !== epoch) return;
+      if (!['google', 'demo'].includes(config.mode)) throw new Error('Unknown mode');
+      authMode = config.mode;
+      $('access-hint').textContent = authMode === 'google' ? 'Your session lasts up to one hour. Disconnect signs out of OpsLens.' : 'Key stays in this page’s memory. Reloading or disconnecting clears access.';
+      $('access-form').hidden = authMode !== 'demo'; $('google-access').hidden = authMode !== 'google';
+      if (authMode === 'google') {
+        $('identity').textContent = 'Sign in with Google. Access is assigned by OpsLens.';
+        try {
+          const identity = await request('/auth/session');
+          if (generation !== epoch) return;
+          $('disconnect').hidden = false;
+          if (!identity.role) {
+            $('access-status').textContent = `Signed in, but no role is assigned. Give the operator your Google subject ID: ${identity.subject}`;
+            return;
+          }
+          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false;
+          $('identity').textContent = `Google account · ${identity.role}`;
+          $('access-status').textContent = 'Connected with a server session. Disconnect to sign out.';
+        } catch (error) {
+          if (generation === epoch) {
+            if (error.status === 401) error.message = window.location?.search === '?login=failed' ?
+              'Google sign-in was cancelled or could not be verified. Please try again.' : 'Continue with Google to access this workspace.';
+            fail(error, 'access-status');
+          }
+        }
+      }
+    } catch (_) {
+      if (generation === epoch) $('access-status').textContent = 'Authentication configuration unavailable. Check the server and reload.';
+    }
+  }
+  initializeAccess();
 
   async function openDocument(reference, citation) {
     clearViewer(); const sequence = viewSequence, generation = epoch;

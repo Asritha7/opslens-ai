@@ -11,12 +11,12 @@ class Element {
   focus() {} scrollIntoView() {}
   fire(name) { return this.listeners[name]({preventDefault(){}}); }
 }
-function harness() {
+function harness(mode='demo') {
   const elements={}, pending=[], events={};
   const get=id=>elements[id] ||= new Element();
   get('service').value='identity-service'; get('version').value='2.4.0'; get('environment').value='production'; get('rotation').value='unknown';
   const context={document:{getElementById:get,createElement:tag=>new Element(tag)},window:{addEventListener:(name,fn)=>events[name]=fn},
-    fetch:(url,options)=>new Promise(resolve=>pending.push({url,options,resolve}))};
+    fetch:(url,options)=>url === '/auth/config' ? Promise.resolve({ok:true,json:async()=>({mode})}) : new Promise(resolve=>pending.push({url,options,resolve}))};
   vm.runInNewContext(fs.readFileSync('opslens/web/app.js','utf8'),context);
   const respond=(index,data,status=200)=>pending[index].resolve({ok:status===200,status,json:async()=>data});
   const login=async()=>{ get('key').value='test-key'; const done=get('access-form').fire('submit'); respond(pending.length-1,{subject:'test',role:'platform'}); await done; };
@@ -56,4 +56,33 @@ test('401 clears identity and all visible evidence',async()=>{
   const h=harness(); await h.login(); h.get('query-form').fire('submit'); h.respond(1,result); await tick();
   find(h.get('result'),'Read stored revision').fire('click'); h.respond(2,{},401); await tick();
   assert.equal(h.get('result').children.length,0); assert.equal(h.get('viewer').hidden,true); assert.equal(h.get('query-fields').disabled,true);
+});
+
+test('Google session uses cookies without a bearer and logout clears evidence',async()=>{
+  const h=harness('google'); await tick();
+  assert.equal(h.pending[0].url,'/auth/session');
+  h.respond(0,{subject:'google-user',role:'platform'}); await tick();
+  assert.equal(h.get('query-fields').disabled,false);
+  h.get('query-form').fire('submit');
+  assert.equal(h.pending[1].options.credentials,'same-origin');
+  assert.equal(h.pending[1].options.headers.Authorization,undefined);
+  assert.equal(h.pending[1].options.headers['X-OpsLens-Request'],'1');
+  h.respond(1,result); await tick();
+  const done=h.get('disconnect').fire('click');
+  assert.equal(h.get('result').children.length,0);
+  assert.equal(h.pending[2].url,'/auth/logout');
+  h.pending[2].resolve({ok:true,status:204}); await done;
+});
+test('unassigned Google account cannot query and sees its assignment identifier',async()=>{
+  const h=harness('google'); h.get('query-fields').disabled=true; await tick();
+  h.respond(0,{subject:'unassigned-user',role:null}); await tick();
+  assert.equal(h.get('query-fields').disabled,true);
+  assert.match(h.get('access-status').textContent,/unassigned-user/);
+  h.get('query-form').fire('submit'); assert.equal(h.pending.length,1);
+});
+test('a denied Google query clears displayed evidence',async()=>{
+  const h=harness('google'); await tick(); h.respond(0,{subject:'user',role:'platform'}); await tick();
+  h.get('query-form').fire('submit'); h.respond(1,result); await tick();
+  h.get('query-form').fire('submit'); h.respond(2,{},403); await tick();
+  assert.equal(h.get('result').children.length,0); assert.equal(h.get('query-fields').disabled,true);
 });

@@ -57,7 +57,7 @@ class DatabaseTests(unittest.TestCase):
             path = Path(directory) / 'keys.json'
             initialize_keys(path)
             loader = lambda role: load_authorized_documents(role, dbname=self.dbname)
-            with TestClient(create_app(key_file=path, document_loader=loader)) as client:
+            with TestClient(create_app(oidc_file=None, key_file=path, document_loader=loader)) as client:
                 for record in read_keys(path):
                     headers = {'Authorization': 'Bearer ' + record['token']}
                     for environment in ('production', 'staging'):
@@ -79,7 +79,7 @@ class DatabaseTests(unittest.TestCase):
             initialize_keys(path)
             headers = {r['role']: {'Authorization': 'Bearer ' + r['token']} for r in read_keys(path)}
             loader = lambda role, doc, rev: load_authorized_revision(role, doc, rev, dbname=self.dbname)
-            with TestClient(create_app(key_file=path, revision_loader=loader)) as client:
+            with TestClient(create_app(oidc_file=None, key_file=path, revision_loader=loader)) as client:
                 url = '/v1/documents/RB-042/revisions/'
                 original = client.get(url + '1', headers=headers['platform'])
                 self.assertEqual(original.status_code, 200)

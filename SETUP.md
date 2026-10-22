@@ -99,6 +99,8 @@ The test command requires the local admin credential to create and remove its ow
 
 ## Local authenticated API
 
+This section describes demo-key mode. For Google login instead, follow [Google OIDC setup](docs/google-login.md); it preserves database setup and disables demo bearer access while configured.
+
 First complete database bootstrap and ingestion above. Install locked dependencies with `./uv-local sync --frozen`, then:
 
 ```sh
@@ -129,7 +131,7 @@ API contract:
 
 To revoke an individual key, remove its record from the private JSON file while preserving mode 600; new requests reload the file, so no restart is needed. Requests already authenticated may finish. To rotate a key, replace its token locally with `secrets.token_urlsafe(32)` and update the client that holds it. Never reuse database passwords as API tokens. An empty, malformed, missing, duplicate-identity, or overly readable credential file fails closed. There is no default/fallback key.
 
-This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, OIDC, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
+This is authentication by possession of local demo keys, not a production login system. The local operator controls all demo identities. Keys have no automatic expiry; there is no account lifecycle, TLS, rate limiting, or audit history. Keep the server on loopback and do not expose it with a tunnel or public listener. API storage is read-only; ingestion remains a separate trusted local CLI. The API does not read files as a fallback when the database is unavailable.
 
 Run `OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v` for HTTP auth checks and real database integration, including requests under all three roles. Database test writes remain confined to a disposable `opslens_test_*` database.
 
@@ -197,8 +199,16 @@ The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate v
 
 ## Local browser workspace
 
+For optional Google login, follow [the Google setup guide](docs/google-login.md). Google sessions survive a page reload until logout or expiry; the following key instructions apply to demo mode.
+
 After the database and API setup above, start `.venv/bin/python -m opslens.api serve` and open <http://127.0.0.1:8000/>. No frontend build or paid hosting is needed.
 
 Open the private `.local/api-keys.json` file locally and copy the token for the intended demo identity into **Access key**. Do not share the file or put its contents in screenshots. Connect, enter the service/version/environment, and select **Find applicable guidance**. The role comes from the server's key record; the browser cannot choose it. Reloading or selecting **Disconnect** clears the page's credential and evidence.
 
 See [the browser walkthrough and authentication boundaries](docs/web-interface.md). Stop the API with Ctrl+C when finished; database data remains in its existing volume.
+
+## Connection refused in the browser
+
+`ERR_CONNECTION_REFUSED` at 127.0.0.1:8000 means no API is accepting the connection. Start `.venv/bin/python -m opslens.api serve` from the repository and leave that terminal running, then open `http://127.0.0.1:8000/`. Docker runs PostgreSQL, not the Python API. The `/auth/google/callback` address is only a return endpoint for a login started through the workspace; do not open it as the home page. Google login additionally requires the private configuration described in [Google setup](docs/google-login.md).
+
+Use the header Theme control for System, Light, or Dark appearance. Only this preference is saved in browser storage.
