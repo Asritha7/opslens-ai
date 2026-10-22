@@ -57,7 +57,7 @@ For an unknown key-rotation setting, one question asks whether it is enabled. Mi
 
 Conflict details explicitly use `basis: catalog_rules`. They describe manually normalized claims, not verbatim procedure quotes or automatically interpreted contradictions. Authorized document content is available through the revision endpoint described in [the API contract](api.md#document-revision-retrieval). Optional [claim citations](citations.md) now provide exact source passages separately from the normalized rules. References must not be rendered as if the normalized rule text were a direct quotation.
 
-Insufficient-evidence messages say that suitable guidance the caller can access was not found. They do not reveal whether inaccessible documents exist. All explanations are constructed after role filtering. The CLI displays these fields as JSON; a graphical interface is not yet implemented.
+Insufficient-evidence messages say that suitable guidance the caller can access was not found. They do not reveal whether inaccessible documents exist. All explanations are constructed after role filtering. The CLI displays these fields as JSON. The browser workspace shows messages, context questions, review reasons, and conflict comparisons. It does not approve or publish metadata proposals.
 
 
 ```mermaid

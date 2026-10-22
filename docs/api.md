@@ -1,6 +1,6 @@
 # Local API contract
 
-Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:8000`. The supplied server command binds only to loopback. Browser documentation/OpenAPI endpoints and CORS access are disabled. No production login, TLS, rate limiting, or automatic key expiry is implemented.
+Start the server using [SETUP.md](../SETUP.md). Base address: `http://127.0.0.1:8000`. The supplied server command binds only to loopback. Generated API documentation/OpenAPI endpoints and CORS access are disabled. No production login, TLS, rate limiting, or automatic key expiry is implemented.
 
 ## Endpoints and authentication
 
@@ -54,7 +54,7 @@ Review reasons are `metadata_unverified`, `missing_environment`, `missing_versio
 
 For example, a version-2.5.0 production query with key rotation enabled under the platform identity reports `disable_key_rotation` with `must` from RB-050 and `must_not` from RB-051. These are catalog rules, not direct source quotations. A version-2.4.0 query with unknown key rotation asks whether rotation is enabled. An intern production query reports insufficient evidence without identifying restricted documents.
 
-All result details are generated after access filtering. Paths are references, not download URLs; use the document ID and revision with the retrieval endpoint. A future UI should display message/next steps and the appropriate question, review, or conflict details; no graphical interface exists yet.
+All result details are generated after access filtering. Paths are references, not download URLs; use the document ID and revision with the retrieval endpoint. The local browser workspace displays messages, next steps, context questions, review reasons, and conflict details. See [the interface guide](web-interface.md).
 
 ## Request and service errors
 
@@ -86,7 +86,7 @@ Successful JSON responses contain:
 
 Current database permissions govern all revisions. Removing a role's access or revoking the current document blocks that role's old revisions as well. Historical approved text can remain readable while access is retained; it is not automatically a recommendation. Use selection to evaluate applicability. Policy changes affect subsequent database reads; already-returned content cannot be retracted.
 
-Content is returned as a JSON string with no-store/nosniff headers, never rendered as HTML. A future viewer must treat Markdown as untrusted content and sanitize any rendering. This endpoint does not provide exact supporting spans, downloads by filesystem path, or edits. Database failures return generic 503 responses without fallback to source files.
+Content is returned as a JSON string with no-store/nosniff headers, never rendered as HTML. The browser viewer displays Markdown as plain text using textContent; it does not render document HTML. This endpoint does not provide exact supporting spans, downloads by filesystem path, or edits. Database failures return generic 503 responses without fallback to source files.
 
 
 ## Conflict source citations

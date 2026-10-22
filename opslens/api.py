@@ -11,7 +11,7 @@ from typing import Literal
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Path as ApiPath
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
@@ -73,6 +73,8 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
         response = await call_next(request)
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        response.headers['Referrer-Policy'] = 'no-referrer'
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -95,6 +97,17 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
             if secrets.compare_digest(supplied, expected):
                 return {'subject': record['subject'], 'role': record['role']}
         raise unauthorized
+
+    @app.get('/', include_in_schema=False)
+    def workspace():
+        return FileResponse(ROOT / 'opslens/web/index.html', media_type='text/html')
+
+    @app.get('/assets/{asset}', include_in_schema=False)
+    def asset_file(asset: str):
+        if asset not in ('app.js', 'app.css'):
+            raise HTTPException(404, 'Asset not found')
+        return FileResponse(ROOT / 'opslens/web' / asset,
+                            media_type='text/javascript' if asset.endswith('.js') else 'text/css')
 
     @app.get('/health')
     def health():

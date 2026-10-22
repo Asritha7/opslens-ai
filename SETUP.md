@@ -108,7 +108,7 @@ First complete database bootstrap and ingestion above. Install locked dependenci
 
 `init-keys` creates three random demo credentials in `.local/api-keys.json` with file mode 600 (only your OS account can read/write). It never overwrites an existing file or prints tokens. The `.local/` directory is Git-ignored. Do not paste this file into issues, screenshots, commits, or chat.
 
-The server binds only to `127.0.0.1:8000`. If that port is already in use, it exits; stop or inspect your own conflicting process rather than terminating unrelated software. Stop this server with Ctrl+C. It does not install an auto-start service. Access logging is disabled, proxy headers are not trusted, and no browser docs/CDN or CORS access is enabled.
+The server binds only to `127.0.0.1:8000`. If that port is already in use, it exits; stop or inspect your own conflicting process rather than terminating unrelated software. Stop this server with Ctrl+C. It does not install an auto-start service. Access logging is disabled, proxy headers are not trusted, and no generated API docs, third-party CDN, or cross-origin API access is enabled. The local browser workspace is served at `/`.
 
 From another terminal in this repository, try:
 
@@ -194,3 +194,11 @@ The catalog advances only RB-050 and RB-051 to revision 2 to add reviewed citati
 ```
 
 The existing revision 1 rows are preserved. Repeat ingestion adds no duplicate versions. A fresh database starts with the revisions present in the catalog, so it will not contain revision 1 of these two documents unless imported separately. Existing databases that have not ingested revision 2 continue to return explicitly incomplete citations for the legacy conflict. See [the citation guide](docs/citations.md).
+
+## Local browser workspace
+
+After the database and API setup above, start `.venv/bin/python -m opslens.api serve` and open <http://127.0.0.1:8000/>. No frontend build or paid hosting is needed.
+
+Open the private `.local/api-keys.json` file locally and copy the token for the intended demo identity into **Access key**. Do not share the file or put its contents in screenshots. Connect, enter the service/version/environment, and select **Find applicable guidance**. The role comes from the server's key record; the browser cannot choose it. Reloading or selecting **Disconnect** clears the page's credential and evidence.
+
+See [the browser walkthrough and authentication boundaries](docs/web-interface.md). Stop the API with Ctrl+C when finished; database data remains in its existing volume.
