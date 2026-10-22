@@ -115,7 +115,7 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
 
     @app.get('/assets/{asset}', include_in_schema=False)
     def asset_file(asset: str):
-        if asset not in ('app.js', 'app.css'):
+        if asset not in ('app.js', 'app.css', 'theme.js'):
             raise HTTPException(404, 'Asset not found')
         return FileResponse(ROOT / 'opslens/web' / asset,
                             media_type='text/javascript' if asset.endswith('.js') else 'text/css')

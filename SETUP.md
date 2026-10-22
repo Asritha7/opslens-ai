@@ -206,3 +206,9 @@ After the database and API setup above, start `.venv/bin/python -m opslens.api s
 Open the private `.local/api-keys.json` file locally and copy the token for the intended demo identity into **Access key**. Do not share the file or put its contents in screenshots. Connect, enter the service/version/environment, and select **Find applicable guidance**. The role comes from the server's key record; the browser cannot choose it. Reloading or selecting **Disconnect** clears the page's credential and evidence.
 
 See [the browser walkthrough and authentication boundaries](docs/web-interface.md). Stop the API with Ctrl+C when finished; database data remains in its existing volume.
+
+## Connection refused in the browser
+
+`ERR_CONNECTION_REFUSED` at 127.0.0.1:8000 means no API is accepting the connection. Start `.venv/bin/python -m opslens.api serve` from the repository and leave that terminal running, then open `http://127.0.0.1:8000/`. Docker runs PostgreSQL, not the Python API. The `/auth/google/callback` address is only a return endpoint for a login started through the workspace; do not open it as the home page. Google login additionally requires the private configuration described in [Google setup](docs/google-login.md).
+
+Use the header Theme control for System, Light, or Dark appearance. Only this preference is saved in browser storage.

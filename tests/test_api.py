@@ -155,7 +155,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.json(), {'detail': 'Evidence store unavailable'})
 
     def test_browser_shell_and_assets_have_security_headers(self):
-        for url, media in (('/', 'text/html'), ('/assets/app.js', 'text/javascript'), ('/assets/app.css', 'text/css')):
+        for url, media in (('/', 'text/html'), ('/assets/app.js', 'text/javascript'), ('/assets/app.css', 'text/css'), ('/assets/theme.js', 'text/javascript')):
             response = self.client.get(url)
             self.assertEqual(response.status_code, 200)
             self.assertIn(media, response.headers['content-type'])
