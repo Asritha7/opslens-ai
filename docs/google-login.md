@@ -1,6 +1,6 @@
 # Google OIDC login and application sessions
 
-Google login is optional and requires your own OAuth Web client. The implementation is available, but a live Google login is not verified until real credentials are configured and the end-to-end flow is exercised. No project, OAuth client, billing account, or cloud deployment is created by this code.
+Google login is optional and requires your own OAuth Web client. A live local Google sign-in and authorized evidence query were verified on 2026-10-22; each new installation still needs its own credentials and callback validation. No project, OAuth client, billing account, or cloud deployment is created by this code.
 
 ## Configure locally
 
@@ -50,3 +50,16 @@ Google routes other than `/auth/config` are absent in demo mode. Protected evide
 ## Verification
 
 Offline tests use generated RSA keys and a fake token exchange; they cover signatures, required claims, nonce, audience, issuer, expiry, callback replay/browser binding, role revocation, CSRF/Host checks, cookie flags, session logout, and fail-closed configuration. They do not establish that a particular Google client registration is correct. Finish validation with a real Google account after setup: sign in unassigned, assign a role, query evidence, revoke the role, and sign out.
+
+
+### Recorded local verification — 2026-10-22
+
+The operator registered a Google Web OAuth client and entered its credentials through the private local setup command. The following steps were observed in the running browser:
+
+1. Google sign-in returned successfully to OpsLens with a valid application session.
+2. The initially unassigned account saw its own enrollment identifier while evidence controls remained disabled.
+3. The operator assigned the verified subject the platform role in the private configuration.
+4. Reloading restored the existing Google session with the assigned role, without restarting the API.
+5. A query for identity-service, production, version 2.4.0, with key rotation enabled returned approved guidance from RB-042 and RB-043, revision 1.
+
+This record contains no client identifiers, subject identifiers, credentials, or session cookies. The live check covered login, assignment, session restoration, and permitted evidence retrieval. Logout, expiry, and role revocation are covered by automated tests but were not exercised against this live Google session during this check. This is local integration evidence, not production certification or a guarantee for other client registrations.
