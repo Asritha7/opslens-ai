@@ -25,7 +25,7 @@ class ApiTests(unittest.TestCase):
         self.records = read_keys(self.path)
         self.loader = Mock(return_value=load_documents())
         self.revision_loader = Mock(return_value=None)
-        self.client = TestClient(create_app(key_file=self.path, document_loader=self.loader, revision_loader=self.revision_loader))
+        self.client = TestClient(create_app(oidc_file=None, key_file=self.path, document_loader=self.loader, revision_loader=self.revision_loader))
         self.addCleanup(self.client.close)
 
     def headers(self, role='platform'):

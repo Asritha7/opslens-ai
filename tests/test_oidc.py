@@ -7,7 +7,7 @@ import tempfile
 import time
 import unittest
 from urllib.parse import parse_qs, urlsplit
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
@@ -145,6 +145,33 @@ class OidcTests(unittest.TestCase):
     def test_client_change_invalidates_session(self):
         self.login(); self.config['client_id'] = 'different-client'; self.save()
         self.assertEqual(self.client.get('/v1/me').status_code, 401)
+
+    def test_expired_callback_cannot_exchange_code(self):
+        now = [time.time()]
+        factory = lambda *args: GoogleSessions(*args, clock=lambda: now[0])
+        with patch('opslens.api.GoogleSessions', side_effect=factory):
+            app = create_app(oidc_file=self.path, oidc_provider=self.provider)
+        with TestClient(app, base_url=ORIGIN) as client:
+            redirect = client.get('/auth/google/login', follow_redirects=False)
+            state = parse_qs(urlsplit(redirect.headers['location']).query)['state'][0]
+            now[0] += 601
+            response = client.get('/auth/google/callback', params={'state': state, 'code': 'code'}, follow_redirects=False)
+            self.assertEqual(response.headers['location'], '/?login=failed')
+            self.provider.exchange.assert_not_called()
+
+    def test_expired_session_cannot_read_evidence(self):
+        now = [time.time()]
+        factory = lambda *args: GoogleSessions(*args, clock=lambda: now[0])
+        with patch('opslens.api.GoogleSessions', side_effect=factory):
+            app = create_app(oidc_file=self.path, oidc_provider=self.provider, document_loader=self.loader)
+        with TestClient(app, base_url=ORIGIN) as client:
+            redirect = client.get('/auth/google/login', follow_redirects=False)
+            state = parse_qs(urlsplit(redirect.headers['location']).query)['state'][0]
+            client.get('/auth/google/callback', params={'state': state, 'code': 'code'}, follow_redirects=False)
+            self.assertEqual(client.get('/v1/me').status_code, 200)
+            now[0] += 3601
+            self.assertEqual(client.post('/v1/select', json=QUERY, headers=self.headers).status_code, 401)
+            self.loader.assert_not_called()
 
     def test_expired_state_and_sessions_are_removed(self):
         now = [100]

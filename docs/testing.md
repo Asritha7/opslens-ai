@@ -16,7 +16,7 @@ docker compose up -d --wait db
 OPSLENS_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The suite currently contains 93 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
+The suite currently contains 95 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
 
 Coverage includes exact/multiline citation validation, stale fingerprints, invalid citation batches, legacy evidence, hidden quotations, version boundaries, permissions, conflicts, missing context, safe explanations, source provenance, ambiguous extraction, authority-field rejection, transactional ingestion, immutable revisions, raw database reader restrictions, bearer-key validation/revocation, authorized revision retrieval, historical access revocation, identical missing/denied responses, and API-to-database integration. File/database parity covers 72 role/version/environment/rotation combinations.
 
@@ -62,3 +62,5 @@ Do not delete database volumes, suppress error logging, or reset credentials mer
 ## Google authentication checks
 
 The full suite includes offline OIDC tests with generated RSA keys and a mocked exchange. Browser logic tests also cover cookie-based session restoration, unassigned users, logout, and clearing evidence after role denial. No real Google credentials or network requests are needed in CI. Real Google consent/callback verification remains a separate operator setup step; see [Google login](google-login.md).
+
+Demo API and database tests explicitly disable Google mode, so adding real local OAuth configuration cannot change their behavior. Expired login flows and sessions are checked through HTTP endpoints using a controlled clock.
