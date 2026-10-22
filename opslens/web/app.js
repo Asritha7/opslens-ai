@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let authMode = 'loading';
-  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null;
+  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null, draftSequence = 0;
   const node = (tag, text, className) => {
     const item = document.createElement(tag);
     if (text !== undefined) item.textContent = text;
@@ -22,16 +22,20 @@
     $('disconnect').hidden = true; $('identity').textContent = authMode === 'google' ? 'Sign in with Google. Access is assigned by OpsLens.' : 'Connect with a local demo key. Your role is assigned by the server.';
     $('access-status').textContent = message; $('result').replaceChildren(); clearViewer();
     $('query-status').textContent = 'Connect and describe your situation to begin.';
+    draftSequence++; $('draft-fields').disabled = true; $('draft-file').value = ''; $('draft-list').replaceChildren(); $('draft-preview').replaceChildren(); $('draft-status').textContent = 'Connect to upload or view your drafts.';
     $('connect').disabled = false; $('submit-query').disabled = false;
   }
   async function request(path, options = {}, credential = token) {
-    const response = await fetch(path, {...options, cache: 'no-store', credentials: authMode === 'google' ? 'same-origin' : 'omit', redirect: 'error',
-      headers: {...(authMode === 'google' ? {'X-OpsLens-Request':'1'} : {'Authorization': `Bearer ${credential}`}), ...(options.body ? {'Content-Type': 'application/json'} : {})}});
+    const {contentType, ...fetchOptions} = options;
+    const response = await fetch(path, {...fetchOptions, cache: 'no-store', credentials: authMode === 'google' ? 'same-origin' : 'omit', redirect: 'error',
+      headers: {...(authMode === 'google' ? {'X-OpsLens-Request':'1'} : {'Authorization': `Bearer ${credential}`}), ...(options.body ? {'Content-Type': contentType || 'application/json'} : {})}});
     if (!response.ok) {
       const error = new Error(response.status === 401 ? 'Access expired or credentials missing. Reconnect to continue.' :
         response.status === 403 ? 'Your account has no permitted role, or this request was rejected. Reconnect or contact the operator.' :
-        response.status === 404 ? 'This revision is unavailable or you no longer have access.' :
-        response.status === 422 ? 'Check the service, version, environment, and key-rotation values.' :
+        response.status === 404 ? 'This document or draft is unavailable or you no longer have access.' :
+        response.status === 413 ? 'The file exceeds the 1 MB limit.' :
+        response.status === 429 ? 'Your account has reached its 20-draft limit. Contact the local operator.' :
+        response.status === 422 ? (path.startsWith('/v1/drafts') ? 'Use a nonempty UTF-8 Markdown file with a simple .md filename.' : 'Check the service, version, environment, and key-rotation values.') :
         'The service is unavailable. Check the local server and database, then retry.');
       error.status = response.status; throw error;
     }
@@ -51,7 +55,7 @@
       const identity = await request('/v1/me', {}, credential);
       if (generation !== epoch) return;
       token = credential; $('identity').textContent = `${identity.subject} · ${identity.role}`;
-      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false;
+      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
       $('access-status').textContent = 'Connected. Access is limited to your assigned role.'; $('service').focus();
     } catch (error) { if (generation === epoch) fail(error, 'access-status'); }
     finally { if (generation === epoch) $('connect').disabled = false; }
@@ -87,7 +91,7 @@
             $('access-status').textContent = `Signed in, but no role is assigned. Give the operator your Google subject ID: ${identity.subject}`;
             return;
           }
-          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false;
+          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
           $('identity').textContent = `Google account · ${identity.role}`;
           $('access-status').textContent = 'Connected with a server session. Disconnect to sign out.';
         } catch (error) {
@@ -179,6 +183,61 @@
     } catch (error) { if (generation === epoch && sequence === querySequence) fail(error, 'query-status'); }
     finally { if (generation === epoch && sequence === querySequence) $('submit-query').disabled = false; }
   }
+  const draftLabels = {title:'Title', service:'Service', environment:'Environment', version_min:'Minimum version', version_max_exclusive:'Maximum version (exclusive)', key_rotation_enabled:'Key rotation', version_range:'Version range'};
+  function renderDraft(draft) {
+    const root = $('draft-preview'); root.replaceChildren();
+    root.append(node('h3', draft.filename), node('p', 'Unpublished draft · Review required', 'badge'));
+    const table = node('table', undefined, 'metadata-table');
+    for (const [field, value] of Object.entries(draft.proposal.proposed_metadata)) {
+      const row = node('tr'); row.append(node('th', draftLabels[field] || field), node('td', value === null ? 'No requirement' : String(value))); table.append(row);
+    }
+    root.append(table);
+    if (draft.proposal.issues.length) {
+      root.append(node('h3', 'Needs your review'));
+      const issues = node('ul');
+      for (const issue of draft.proposal.issues) issues.append(node('li', `${draftLabels[issue.field] || issue.field}: ${issue.reason.replaceAll('_', ' ')}`));
+      root.append(issues);
+    } else root.append(node('p', 'Fields were extracted. A person still needs to verify them before any future publication.'));
+    const provenance = node('details'); provenance.append(node('summary', 'View extraction source lines'));
+    for (const [field, entries] of Object.entries(draft.proposal.provenance)) for (const entry of entries) {
+      provenance.append(node('p', `${draftLabels[field] || field} · line ${entry.line}`), node('blockquote', entry.quote));
+    }
+    root.append(provenance);
+    const source = node('details'); source.append(node('summary', 'View stored Markdown'), node('pre', draft.content)); root.append(source);
+    root.append(node('p', 'Permissions, approval, and verification are never granted by uploaded text. Editing and publishing are not available in this step.', 'hint'));
+  }
+  async function draftOperation(action) {
+    if (!token) return;
+    const generation = epoch, sequence = ++draftSequence;
+    $('draft-fields').disabled = true; $('draft-preview').replaceChildren(); $('draft-list').replaceChildren();
+    $('draft-status').textContent = 'Working on your private draft…';
+    const current = () => generation === epoch && sequence === draftSequence;
+    try { await action(current); }
+    catch (error) { if (current()) fail(error, 'draft-status'); }
+    finally { if (current()) $('draft-fields').disabled = false; }
+  }
+  $('draft-form').addEventListener('submit', event => {
+    event.preventDefault();
+    const file = $('draft-file').files[0];
+    if (!file || file.size > 1000000 || !/\.md$/i.test(file.name)) {
+      $('draft-status').textContent = 'Choose a Markdown (.md) file of at most 1 MB.'; return;
+    }
+    draftOperation(async current => {
+      const data = await file.arrayBuffer(); if (!current()) return;
+      const draft = await request(`/v1/drafts?filename=${encodeURIComponent(file.name)}`, {method:'POST', body:data, contentType:'text/markdown'});
+      if (!current()) return;
+      renderDraft(draft); $('draft-file').value = ''; $('draft-status').textContent = 'Saved privately. Review the extraction below; this document is not published.';
+    });
+  });
+  $('load-drafts').addEventListener('click', () => draftOperation(async current => {
+    const result = await request('/v1/drafts'); if (!current()) return;
+    $('draft-status').textContent = result.drafts.length ? 'Your saved drafts. Choose one to inspect.' : 'You have no saved drafts yet.';
+    for (const draft of result.drafts) $('draft-list').append(button(draft.filename, () => draftOperation(async active => {
+      const saved = await request(`/v1/drafts/${encodeURIComponent(draft.id)}`); if (!active()) return;
+      renderDraft(saved); $('draft-status').textContent = 'Stored draft loaded. Review is still required.';
+    })));
+  }));
+
   $('query-form').addEventListener('submit', event => {
     event.preventDefault(); const rotation = $('rotation').value;
     runQuery({service:$('service').value.trim(), software_version:$('version').value.trim(), environment:$('environment').value,

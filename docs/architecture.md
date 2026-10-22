@@ -7,7 +7,11 @@ flowchart TD
     Source["Markdown sources and catalog"] --> Ingest["Trusted ingestion CLI"]
     Ingest --> DB[("PostgreSQL in Docker")]
     Client["Local browser workspace or CLI client"] --> API["FastAPI on 127.0.0.1:8000"]
-    Keys["Private demo keys"] --> API
+    Keys["Private demo keys or Google session"] --> API
+    Client --> Upload["Authenticated Markdown draft upload"]
+    Upload --> DraftStore["Separate draft writer; owner-scoped draft table"]
+    DraftStore --> Preview["Stored extraction proposal and source lines"]
+    Preview --> Client
     API -->|"Assigned reader account"| DB
     DB -->|"Authorized current metadata"| API
     API -->|"Requested revision via reader account"| Evidence["Stored Markdown and revision metadata"]
@@ -38,8 +42,12 @@ Extraction reads explicit Markdown fields and proposes values with provenance. I
 
 ## Implemented and remaining
 
-Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, an API supporting demo bearer keys or Google OIDC sessions, structured metadata proposals, actionable response fields, authorized historical document retrieval, a browser workspace with cited-passage viewing, automated tests, and required CI.
+Implemented: local Python setup, persistent PostgreSQL, revision ingestion, restricted readers, deterministic selection, an API supporting demo bearer keys or Google OIDC sessions, structured metadata proposals, actionable response fields, authorized historical document retrieval, a browser workspace with cited-passage viewing and private Markdown draft previews, automated tests, and required CI.
 
 Remaining: production identity deployment, general account management, general document parsing, local LLM integration, vector retrieval, semantic contradiction detection, saved answers/audit history, background workers, and live service context. Conflict responses include manually authored, validated source-line quotations where provided; other claims can remain explicitly uncited. Automatic claim-to-passage alignment is future work.
 
 See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), and [testing](testing.md).
+
+## Draft storage boundary
+
+Drafts live in `opslens.upload_drafts`, separate from published documents and versions. The dedicated `opslens_draft_writer` login can select and insert only draft rows, using an owner context derived by the server from the authenticated identity. It cannot read or write published evidence. Evidence readers cannot access drafts. The database owner and server holding the draft credential remain trusted; see [draft security boundaries](drafts.md).
