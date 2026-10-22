@@ -61,6 +61,6 @@ Do not delete database volumes, suppress error logging, or reset credentials mer
 
 ## Google authentication checks
 
-The full suite includes offline OIDC tests with generated RSA keys and a mocked exchange. Browser logic tests also cover cookie-based session restoration, unassigned users, logout, and clearing evidence after role denial. No real Google credentials or network requests are needed in CI. Real Google consent/callback verification remains a separate operator setup step; see [Google login](google-login.md).
+The full suite includes offline OIDC tests with generated RSA keys and a mocked exchange. Browser logic tests also cover cookie-based session restoration, unassigned users, logout, and clearing evidence after role denial. No real Google credentials or network requests are needed in CI. A live Google sign-in, initially unassigned account, local role assignment, session restoration, and authorized evidence query were verified on 2026-10-22; see [the verification record](google-login.md#recorded-local-verification--2026-10-22). Each installation still needs its own Google setup.
 
 Demo API and database tests explicitly disable Google mode, so adding real local OAuth configuration cannot change their behavior. Expired login flows and sessions are checked through HTTP endpoints using a controlled clock.

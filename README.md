@@ -73,7 +73,7 @@ This is synchronous local ingestion, not the future worker/job pipeline. The cat
 
 ## Authenticated local API
 
-The commands below use demo mode. [Google mode](docs/google-login.md) replaces demo keys with browser login and server-side sessions.
+The commands below use demo mode. [Google mode](docs/google-login.md) replaces demo keys with browser login and server-side sessions. Live local Google sign-in and permitted evidence retrieval were verified on 2026-10-22; credentials and role assignments remain private configuration, not repository content.
 
 The implemented API is a loopback-only FastAPI service. `POST /v1/select` accepts service, software version, environment, and key-rotation context. A demo bearer key, or a Google session when configured, determines the identity and database reader role. `GET /v1/me` reports that identity; `GET /health` reports process liveness only. Invalid credentials cannot load evidence; malformed request fields are rejected. Database failures return a generic error without exposing source rows or credentials.
 
