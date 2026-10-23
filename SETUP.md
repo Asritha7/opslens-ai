@@ -89,7 +89,7 @@ docker compose up -d --wait db
 .venv/bin/python -m runreviq.database ingest
 ```
 
-Bootstrap creates three non-superuser, read-only evidence readers a separate restricted draft writer, and a restricted submission-review account, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
+Bootstrap creates three non-superuser, read-only evidence readers, a separate restricted draft writer, and a restricted submission-review account, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
 
 The admin credential is used for setup, ingestion, and test-database administration. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
 
