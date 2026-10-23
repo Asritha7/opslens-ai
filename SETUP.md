@@ -220,3 +220,7 @@ Use the header Theme control for System, Light, or Dark appearance. Only this pr
 For an existing installation, rerun the credential-generation block under “Database schema, ingestion, and restricted readers” to add only the missing `DRAFTS_PASSWORD`. Run `.venv/bin/python -m runreviq.database bootstrap` to apply migration 002. Existing credentials, published revisions, and document permissions are preserved. Restart the API to load the new routes (Google sessions will require sign-in again).
 
 After signing in with an assigned role, scroll to **Add a document for review**. Choose a UTF-8 `.md` file up to 1,000,000 bytes and select **Save draft and preview**. Use `docs/runbook-template.md` as a fictional example. **Load my drafts** reopens saved previews. See [draft intake](docs/drafts.md) for privacy, limits, and the distinction between extraction and publication.
+
+## Saved draft metadata review
+
+Run `.venv/bin/python -m runreviq.database bootstrap` to apply additive migration 003, then restart the API and sign in again. Existing drafts and source proposals are preserved. Open a draft, edit **Your metadata edits**, and select **Save review progress**. Incomplete values remain visibly flagged; drafts stay unpublished. See [review behavior and conflicts](docs/drafts.md#edit-and-save-review-progress).

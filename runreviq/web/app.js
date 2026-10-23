@@ -33,9 +33,10 @@
       const error = new Error(response.status === 401 ? 'Access expired or credentials missing. Reconnect to continue.' :
         response.status === 403 ? 'Your account has no permitted role, or this request was rejected. Reconnect or contact the operator.' :
         response.status === 404 ? 'This document or draft is unavailable or you no longer have access.' :
+        response.status === 409 ? 'This draft was edited in another tab. Your edits remain here; copy them before loading the latest draft.' :
         response.status === 413 ? 'The file exceeds the 1 MB limit.' :
         response.status === 429 ? 'Your account has reached its 20-draft limit. Contact the local operator.' :
-        response.status === 422 ? (path.startsWith('/v1/drafts') ? 'Use a nonempty UTF-8 Markdown file with a simple .md filename.' : 'Check the service, version, environment, and key-rotation values.') :
+        response.status === 422 ? (path.endsWith('/review') ? 'Check the six review fields (at most 200 characters each) and the review revision.' : path.startsWith('/v1/drafts') ? 'Use a nonempty UTF-8 Markdown file with a simple .md filename.' : 'Check the service, version, environment, and key-rotation values.') :
         'The service is unavailable. Check the local server and database, then retry.');
       error.status = response.status; throw error;
     }
@@ -191,9 +192,9 @@
     for (const [field, value] of Object.entries(draft.proposal.proposed_metadata)) {
       const row = node('tr'); row.append(node('th', draftLabels[field] || field), node('td', value === null ? 'No requirement' : String(value))); table.append(row);
     }
-    root.append(table);
+    root.append(node('h3', 'Original extraction'), table);
     if (draft.proposal.issues.length) {
-      root.append(node('h3', 'Needs your review'));
+      root.append(node('h3', 'Original extraction issues'));
       const issues = node('ul');
       for (const issue of draft.proposal.issues) issues.append(node('li', `${draftLabels[issue.field] || issue.field}: ${issue.reason.replaceAll('_', ' ')}`));
       root.append(issues);
@@ -204,7 +205,45 @@
     }
     root.append(provenance);
     const source = node('details'); source.append(node('summary', 'View stored Markdown'), node('pre', draft.content)); root.append(source);
-    root.append(node('p', 'Permissions, approval, and verification are never granted by uploaded text. Editing and publishing are not available in this step.', 'hint'));
+    root.append(node('p', 'Original source and extraction stay unchanged. Your edits are private review progress, not approval or publication.', 'hint'));
+    renderReviewEditor(draft, root);
+  }
+  function renderReviewEditor(draft, root) {
+    root.append(node('h3', 'Your metadata edits'));
+    root.append(node('p', draft.review ? `Saved review ${draft.review.revision} · Still unpublished` : 'No edits saved yet. Fields below start from the extraction.'));
+    const issues = draft.review ? draft.review.issues : draft.proposal.issues;
+    const issueList = node('ul');
+    for (const issue of issues) issueList.append(node('li', `${draftLabels[issue.field] || issue.field}: ${issue.reason.replaceAll('_', ' ')}`));
+    root.append(issueList);
+    if (!issues.length) root.append(node('p', 'Fields pass format checks. Accuracy and approval still require a person.'));
+    const form = node('form'), fields = node('fieldset'), inputs = {};
+    for (const field of ['title', 'service', 'environment', 'version_min', 'version_max_exclusive', 'key_rotation_enabled']) {
+      const input = node('input'); input.id = `review-${field}`; input.type = 'text'; input.maxLength = 200;
+      const extracted = draft.proposal.proposed_metadata[field];
+      input.value = draft.review ? draft.review.metadata[field] : extracted === undefined ? '' : extracted === null ? 'none' : String(extracted);
+      const label = node('label', draftLabels[field]); label.htmlFor = input.id;
+      fields.append(label, input); inputs[field] = input;
+    }
+    fields.append(node('p', 'Environment: production or staging. Versions: X.Y.Z. Key rotation: true, false, or none (no requirement). Blank means missing; you may save incomplete work.', 'hint'));
+    const save = node('button', 'Save review progress'); save.type = 'submit';
+    fields.append(save); form.append(fields); root.append(form);
+    if (draft.review && draft.review.revision >= 100) {
+      fields.disabled = true; root.append(node('p', 'This draft has reached its 100-save limit. Contact the local operator.')); return;
+    }
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); if (!token || fields.disabled) return;
+      const generation = epoch, sequence = ++draftSequence;
+      const current = () => generation === epoch && sequence === draftSequence;
+      fields.disabled = true; $('draft-fields').disabled = true;
+      $('draft-status').textContent = 'Saving your review progress…';
+      const metadata = Object.fromEntries(Object.entries(inputs).map(([key, input]) => [key, input.value]));
+      try {
+        const review = await request(`/v1/drafts/${encodeURIComponent(draft.id)}/review`, {method:'POST', body:JSON.stringify({expected_revision:draft.review ? draft.review.revision : 0, metadata})});
+        if (!current()) return;
+        renderDraft({...draft, review}); $('draft-status').textContent = 'Review progress saved. This draft is still unpublished.';
+      } catch (error) { if (current()) fail(error, 'draft-status'); }
+      finally { if (current()) { fields.disabled = false; $('draft-fields').disabled = false; } }
+    });
   }
   async function draftOperation(action) {
     if (!token) return;

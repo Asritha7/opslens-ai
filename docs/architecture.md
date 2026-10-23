@@ -51,3 +51,5 @@ See [setup](../SETUP.md), [API](api.md), [extraction](metadata-proposals.md), an
 ## Draft storage boundary
 
 Drafts live in `opslens.upload_drafts`, separate from published documents and versions. The dedicated `opslens_draft_writer` login can select and insert only draft rows, using an owner context derived by the server from the authenticated identity. It cannot read or write published evidence. Evidence readers cannot access drafts. The database owner and server holding the draft credential remain trusted; see [draft security boundaries](drafts.md).
+
+Metadata review saves append a revision in `opslens.draft_reviews`, using parent-draft ownership, an expected revision, and a per-draft transaction lock. Original uploads/proposals are immutable to the application login. Validity feedback is separate from approval; neither drafts nor review snapshots feed the selector.
