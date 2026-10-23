@@ -19,7 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from runreviq.database import load_authorized_documents, load_authorized_revision
-from runreviq import submissions
+from runreviq import submissions, publications
 from runreviq.selector import ROOT, ROLES, select
 from runreviq.oidc import GoogleSessions, install_routes
 from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES, save_review, ReviewConflict
@@ -97,9 +97,24 @@ class DecisionRequest(BaseModel):
     comment: str = Field(min_length=1, max_length=2000)
 
 
+class PublicationClaim(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    action: str = Field(pattern=r'^[a-z][a-z_]{0,99}$')
+    rule: Literal['must', 'must_not']
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+
+
+class PublicationRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    allowed_roles: list[Literal['platform', 'security', 'intern']] = Field(min_length=1, max_length=3)
+    claims: list[PublicationClaim] = Field(min_length=1, max_length=20)
+    metadata_verified: StrictBool
+
+
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
                revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None,
-               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft, review_writer=save_review, reviewers_file=submissions.REVIEWERS_FILE):
+               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft, review_writer=save_review, reviewers_file=submissions.REVIEWERS_FILE, publishers_file=publications.PUBLISHERS_FILE):
     app = FastAPI(title='Runreviq local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
     # Mode is fixed at startup. Removing a configured file fails closed, not back
@@ -241,6 +256,34 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
     @app.post('/v1/submissions/{submission_id}/decision')
     def submission_decision(submission_id: UUID, body: DecisionRequest, actor=Depends(reviewer)):
         return workflow_call(submissions.decide, actor, submission_id, body.decision, body.comment)
+
+    def publisher_access(principal):
+        try:
+            return publications.can_publish('google' if sessions else 'demo', principal['subject'], publishers_file)
+        except (ValueError, OSError):
+            raise HTTPException(503, 'Publisher configuration unavailable') from None
+
+    def publisher(principal=Depends(identity)):
+        if not publisher_access(principal):
+            raise HTTPException(403, 'Publisher permission must be assigned separately by the operator')
+        return draft_owner(principal)
+
+    @app.get('/v1/publisher-access')
+    def publish_access(principal=Depends(identity)):
+        return {'can_publish': publisher_access(principal)}
+
+    @app.get('/v1/publications/queue')
+    def publication_queue(actor=Depends(publisher)):
+        return {'submissions': workflow_call(publications.queue)}
+
+    @app.get('/v1/publications/{submission_id}')
+    def publication_detail(submission_id: UUID, actor=Depends(publisher)):
+        return workflow_call(publications.detail, submission_id)
+
+    @app.post('/v1/publications/{submission_id}')
+    def publish_submission(submission_id: UUID, body: PublicationRequest, actor=Depends(publisher)):
+        return workflow_call(publications.publish, actor, submission_id, body.allowed_roles,
+                             [claim.model_dump() for claim in body.claims], body.metadata_verified)
 
     @app.get('/', include_in_schema=False)
     def workspace():

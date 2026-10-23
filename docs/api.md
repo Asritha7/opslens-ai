@@ -101,7 +101,7 @@ Quotes come from metadata validated against source content during ingestion and 
 
 ## Private draft endpoints
 
-Authenticated users with an assigned role can create, list, and read their own unpublished drafts through `/v1/drafts`. Google-mode POSTs require the same Origin and request header as selection. Uploads use raw `text/markdown`, not JSON or multipart. See [the full request contract](drafts.md#api-contract). Separate submission endpoints record reviewer decisions on fixed snapshots; no endpoint publishes a draft.
+Authenticated users with an assigned role can create, list, and read their own unpublished drafts through `/v1/drafts`. Google-mode POSTs require the same Origin and request header as selection. Uploads use raw `text/markdown`, not JSON or multipart. See [the full request contract](drafts.md#api-contract). Separate submission endpoints record reviewer decisions on fixed snapshots; separate publisher endpoints can publish an approved snapshot; see [publication](publication.md#api).
 
 `POST /v1/drafts/{uuid}/review` saves private metadata review progress using an expected revision and six editable string fields. It returns validation issues without granting approval; stale saves return 409. Draft detail includes the latest saved review. See [the review contract](drafts.md#edit-and-save-review-progress).
 

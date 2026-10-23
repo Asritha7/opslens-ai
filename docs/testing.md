@@ -16,7 +16,7 @@ docker compose up -d --wait db
 RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The suite currently contains 129 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
+The suite currently contains 142 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
 
 Coverage includes exact/multiline citation validation, stale fingerprints, invalid citation batches, legacy evidence, hidden quotations, version boundaries, permissions, conflicts, missing context, safe explanations, source provenance, ambiguous extraction, authority-field rejection, transactional ingestion, immutable revisions, raw database reader restrictions, bearer-key validation/revocation, authorized revision retrieval, historical access revocation, identical missing/denied responses, and API-to-database integration. File/database parity covers 72 role/version/environment/rotation combinations.
 
@@ -72,3 +72,9 @@ Draft tests cover file validation and byte limits, authenticated owner derivatio
 Review coverage includes incomplete/invalid fields, forbidden authority fields, owner-scoped persistence, original-source preservation, stale revision conflicts, append-only grants, RLS, UI error retention, and logout races.
 
 Submission tests cover reviewer allowlist validation/revocation, server-derived identities, valid/latest revision requirements, immutable snapshots, retry deduplication, private unsubmitted content, self-review rejection, owner feedback, database privileges, and concurrent decision conflicts. Browser tests cover explicit reviewer access checks, decision payloads, safe source rendering, logout races, and owner submission feedback.
+
+## Controlled publication
+
+Publication tests cover separate access/revocation, server-derived actors, source citations, approval requirements, transactional validation, idempotent retries, concurrent requests, stale revision rejection, immutable history, current reading permissions, and restricted database grants. Browser tests cover explicit publication inputs, denied capability, failed requests, and late responses after logout. All integration writes use disposable databases.
+
+Manual publication QA used a disposable database and fictional author, reviewer, and publisher identities. The browser published an approved source with an explicit intern reading role and line-bound claim, then found it through selection and opened the stored revision. The test server and database were removed afterward.

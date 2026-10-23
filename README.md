@@ -110,7 +110,7 @@ See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a loc
 
 ## Private draft intake
 
-Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader until an explicit submission shares the source and selected metadata revision with designated reviewers. They never enter guidance selection. Users can save corrected metadata as private review progress, with missing/invalid fields and stale-save conflicts shown explicitly. Independent submission decisions are supported; publishing remains unavailable. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
+Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader until an explicit submission shares the source and selected metadata revision with designated reviewers. Private drafts never enter guidance selection; only explicitly published snapshots do. Users can save corrected metadata as private review progress, with missing/invalid fields and stale-save conflicts shown explicitly. Independent submission decisions and separately authorized publication are supported. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
 
 ## Project rename
 
@@ -119,3 +119,7 @@ This project is now **Runreviq** (formerly OpsLens AI). Repository: https://gith
 ## Submission decisions
 
 Authors may submit their latest complete saved review. Separately designated reviewers can inspect the exact snapshot and record approval or request changes with a comment. Self-review and decision overwrites are blocked. Approval does not publish or enter guidance selection. Reviewer access is denied by default; see [the workflow and setup](docs/submissions.md).
+
+## Controlled publishing
+
+Separately assigned publishers can publish an independently approved snapshot with verified applicability, explicit reading roles, and manually reviewed, source-bound claims. Publication is transactional and preserves earlier revisions; authors can see the receipt. See [publication setup, workflow, and limitations](docs/publication.md).

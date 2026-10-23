@@ -42,7 +42,7 @@ flowchart LR
 
 The public shell contains no credentials or evidence. Only three allowlisted assets are served. Evidence requests stay on the same origin and reject redirects. Responses use no-store, nosniff, no-referrer, and a restrictive Content Security Policy. Source text and quotations use textContent, so Markdown and HTML are displayed as text rather than executed. The UI clears a prior document before fetching another one.
 
-This is a loopback-only prototype without TLS, rate limiting, production identity management, or audit history. Public fictional fixture files are not confidential. The interface can save private unpublished drafts. Published evidence remains read-only; publication ingestion and permission changes remain trusted operator tasks; independent submission decisions require separately assigned reviewer authority. There is no general chat, AI generation, semantic search, or automatic remediation.
+This is a loopback-only prototype without TLS, rate limiting, production identity management, or comprehensive audit logging. Public fictional fixture files are not confidential. The interface can save private unpublished drafts. Publication requires a separate publisher capability; it records a publication receipt and explicit reading permissions. Independent submission decisions require separately assigned reviewer authority. There is no general chat, AI generation, semantic search, or automatic remediation.
 
 ## Appearance
 
@@ -57,3 +57,7 @@ After connecting, use **Add a document for review** to upload a Markdown file an
 ## Submission review
 
 Draft owners can explicitly submit a saved complete revision and check decision comments. The sharing notice explains reviewer access to the source and snapshot. **Submitted documents** provides a separate reviewer queue with approve/request-changes decisions. Reading roles do not confer review authority, and self-review is blocked. See [the workflow](submissions.md).
+
+## Publisher workspace
+
+**Publish approved guidance** checks separate publisher access, lists approved eligible submissions, and displays the exact source with line numbers. Publishers confirm metadata verification, explicitly select reading roles, and enter cited claims. Success shows a publication receipt; failed requests preserve input, and disconnect clears protected content. See [publication](publication.md).
