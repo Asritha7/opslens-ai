@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from runreviq.database import load_authorized_documents, load_authorized_revision
 from runreviq.selector import ROOT, ROLES, select
 from runreviq.oidc import GoogleSessions, install_routes
-from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES
+from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES, save_review, ReviewConflict
 
 KEY_FILE = ROOT / '.local/api-keys.json'
 OIDC_FILE = ROOT / '.local/google-oidc.json'
@@ -69,9 +69,25 @@ class SelectionRequest(BaseModel):
     key_rotation_enabled: StrictBool | None = None
 
 
+class ReviewMetadata(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    title: str = Field(max_length=200)
+    service: str = Field(max_length=200)
+    environment: str = Field(max_length=200)
+    version_min: str = Field(max_length=200)
+    version_max_exclusive: str = Field(max_length=200)
+    key_rotation_enabled: str = Field(max_length=200)
+
+
+class ReviewRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    expected_revision: int = Field(ge=0, lt=100)
+    metadata: ReviewMetadata
+
+
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
                revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None,
-               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft):
+               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft, review_writer=save_review):
     app = FastAPI(title='Runreviq local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
     # Mode is fixed at startup. Removing a configured file fails closed, not back
@@ -146,6 +162,20 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
     def own_draft(draft_id: UUID, principal=Depends(identity)):
         try:
             result = draft_reader(draft_owner(principal), draft_id)
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Draft store unavailable') from None
+        if result is None:
+            raise HTTPException(404, 'Draft not found')
+        return result
+
+    @app.post('/v1/drafts/{draft_id}/review')
+    def review_draft(draft_id: UUID, body: ReviewRequest, principal=Depends(identity)):
+        try:
+            result = review_writer(draft_owner(principal), draft_id, body.expected_revision, body.metadata.model_dump())
+        except ReviewConflict:
+            raise HTTPException(409, 'Draft review changed; reload before saving') from None
+        except DraftInputError:
+            raise HTTPException(422, 'Invalid review fields') from None
         except (psycopg.Error, ValueError, OSError):
             raise HTTPException(503, 'Draft store unavailable') from None
         if result is None:

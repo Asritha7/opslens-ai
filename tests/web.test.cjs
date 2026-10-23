@@ -116,3 +116,34 @@ test('saved drafts can be listed and source content remains plain text',async()=
   const source=h.get('draft-preview').children.find(e=>e.tag==='details' && e.children.some(c=>c.tag==='pre'));
   assert.equal(source.children.find(e=>e.tag==='pre').textContent,'<script>untrusted()</script>');
 });
+function descendants(root) { return [root,...root.children.flatMap(descendants)]; }
+async function reviewHarness() {
+  const h=harness(); await h.login(); h.get('load-drafts').fire('click');
+  h.respond(1,{drafts:[{id:'draft-id',filename:'example.md'}]}); await tick();
+  find(h.get('draft-list'),'example.md').fire('click'); h.respond(2,draftFixture); await tick();
+  const editor=descendants(h.get('draft-preview')).find(e=>e.tag==='form');
+  return {h,editor,inputs:descendants(editor).filter(e=>e.tag==='input')};
+}
+test('review saves corrected values with revision and retains original extraction',async()=>{
+  const {h,editor,inputs}=await reviewHarness(); inputs[0].value='Corrected';
+  editor.fire('submit');
+  const body=JSON.parse(h.pending[3].options.body);
+  assert.equal(body.expected_revision,0); assert.equal(body.metadata.title,'Corrected');
+  assert.equal(h.pending[3].url,'/v1/drafts/draft-id/review');
+  h.respond(3,{revision:1,metadata:body.metadata,issues:[{field:'service',reason:'missing'}]}); await tick();
+  const all=descendants(h.get('draft-preview'));
+  assert.ok(all.some(e=>e.textContent==='Example'));
+  assert.ok(all.some(e=>e.textContent==='service: missing' || e.textContent==='Service: missing'));
+  assert.equal(all.find(e=>e.id==='review-title').value,'Corrected');
+});
+test('review conflict preserves unsaved input and permits loading latest',async()=>{
+  const {h,editor,inputs}=await reviewHarness(); inputs[0].value='Keep this';
+  editor.fire('submit'); h.respond(3,{},409); await tick();
+  assert.equal(inputs[0].value,'Keep this'); assert.match(h.get('draft-status').textContent,/another tab/);
+  assert.equal(h.get('draft-fields').disabled,false);
+});
+test('review response after logout cannot restore private content',async()=>{
+  const {h,editor}=await reviewHarness(); editor.fire('submit'); h.get('disconnect').fire('click');
+  h.respond(3,{revision:1,metadata:{},issues:[]}); await tick();
+  assert.equal(h.get('draft-preview').children.length,0); assert.equal(h.get('draft-fields').disabled,true);
+});

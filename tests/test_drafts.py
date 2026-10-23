@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from runreviq.api import create_app, initialize_keys, read_keys
 from runreviq.drafts import (prepare_draft, create_draft, list_drafts, get_draft,
-                            connect_drafts, scope, owner_key, DraftLimit, DraftInputError)
+                            connect_drafts, scope, owner_key, DraftLimit, DraftInputError, save_review, validate_review, ReviewConflict)
 
 CONTENT = '# New runbook\n\n## Applicability\nservice: identity-service\nenvironment: production\nversion_min: 2.4.0\nversion_max_exclusive: 2.5.0\nkey_rotation_enabled: true\n'
 
@@ -50,9 +50,10 @@ class DraftApiTests(unittest.TestCase):
         self.records = records
         self.writer = Mock(return_value={'status': 'draft', 'proposal': {'review_required': True}})
         self.lister = Mock(return_value=[]); self.reader = Mock(return_value=None)
+        self.reviewer = Mock(return_value={'revision': 1, 'review_required': True})
         self.evidence = Mock(return_value=[])
         self.client = TestClient(create_app(oidc_file=None, key_file=path, draft_writer=self.writer,
-            draft_lister=self.lister, draft_reader=self.reader, document_loader=self.evidence))
+            draft_lister=self.lister, draft_reader=self.reader, document_loader=self.evidence, review_writer=self.reviewer))
         self.addCleanup(self.client.close)
         self.headers = {'Authorization': 'Bearer ' + records[0]['token'], 'Content-Type': 'text/markdown'}
 
@@ -92,6 +93,29 @@ class DraftApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 404)
             self.assertEqual(response.json(), {'detail':'Draft not found'})
         self.assertEqual(self.client.get('/v1/drafts/not-a-uuid', headers=self.headers).status_code, 422)
+
+    def test_review_auth_validation_and_ownership(self):
+        url = '/v1/drafts/' + str(uuid.uuid4()) + '/review'
+        metadata = dict.fromkeys(('title', 'service', 'environment', 'version_min', 'version_max_exclusive', 'key_rotation_enabled'), '')
+        body = {'expected_revision': 0, 'metadata': metadata}
+        self.assertEqual(self.client.post(url, json=body).status_code, 401)
+        headers = {'Authorization': self.headers['Authorization']}
+        self.assertEqual(self.client.post(url, json=body, headers=headers).status_code, 200)
+        self.assertEqual(self.reviewer.call_args.args[0], owner_key('demo', self.records[0]['subject']))
+        for invalid in ({**body, 'approved': True}, {**body, 'expected_revision': True},
+                        {**body, 'metadata': {**metadata, 'allowed_roles': 'platform'}}):
+            self.assertEqual(self.client.post(url, json=invalid, headers=headers).status_code, 422)
+
+    def test_review_conflict_missing_and_storage_errors(self):
+        url = '/v1/drafts/' + str(uuid.uuid4()) + '/review'
+        body = {'expected_revision': 0, 'metadata': dict.fromkeys(('title', 'service', 'environment', 'version_min', 'version_max_exclusive', 'key_rotation_enabled'), '')}
+        headers = {'Authorization': self.headers['Authorization']}
+        for error, status in ((ReviewConflict(), 409), (psycopg.OperationalError('secret'), 503)):
+            self.reviewer.side_effect = error
+            response = self.client.post(url, json=body, headers=headers)
+            self.assertEqual(response.status_code, status); self.assertNotIn('secret', response.text)
+        self.reviewer.side_effect = None; self.reviewer.return_value = None
+        self.assertEqual(self.client.post(url, json=body, headers=headers).status_code, 404)
 
 
 @unittest.skipUnless(os.environ.get('RUNREVIQ_TEST_DATABASE') == '1', 'Requires disposable PostgreSQL database')
@@ -169,3 +193,44 @@ class DraftDatabaseTests(unittest.TestCase):
         self.save(); bootstrap(self.dbname)
         self.assertEqual(len(list_drafts(self.owner, dbname=self.dbname)), 1)
         self.assertEqual(load_authorized_documents('platform', dbname=self.dbname), [])
+
+
+    def test_review_persistence_conflict_and_original_preservation(self):
+        draft = self.save()
+        metadata = {'title': 'Corrected title', 'service': 'identity-service', 'environment': 'staging',
+                    'version_min': '2.4.0', 'version_max_exclusive': '2.5.0', 'key_rotation_enabled': 'none'}
+        review = save_review(self.owner, draft['id'], 0, metadata, dbname=self.dbname)
+        self.assertEqual(review['revision'], 1); self.assertEqual(review['issues'], [])
+        stored = get_draft(self.owner, draft['id'], dbname=self.dbname)
+        self.assertEqual(stored['content'], CONTENT); self.assertEqual(stored['proposal'], draft['proposal'])
+        self.assertEqual(stored['review']['metadata'], metadata)
+        with self.assertRaises(ReviewConflict): save_review(self.owner, draft['id'], 0, metadata, dbname=self.dbname)
+        self.assertIsNone(save_review(self.other, draft['id'], 1, metadata, dbname=self.dbname))
+        self.assertIsNone(get_draft(self.other, draft['id'], dbname=self.dbname))
+        metadata['environment'] = ''
+        saved = save_review(self.owner, draft['id'], 1, metadata, dbname=self.dbname)
+        self.assertEqual(saved['revision'], 2); self.assertIn({'field':'environment','reason':'missing'}, saved['issues'])
+        with connect_drafts(self.dbname) as conn:
+            scope(conn, self.owner)
+            self.assertEqual(conn.execute('SELECT count(*) FROM opslens.draft_reviews WHERE draft_id=%s', (draft['id'],)).fetchone()[0], 2)
+
+    def test_review_rls_and_append_only_grants(self):
+        draft = self.save()
+        for owner, statement in ((self.other, "INSERT INTO opslens.draft_reviews VALUES (%s,1,'{}',now())"),
+                                 (self.owner, 'DELETE FROM opslens.draft_reviews WHERE draft_id=%s'),
+                                 (self.owner, "UPDATE opslens.draft_reviews SET metadata='{}' WHERE draft_id=%s")):
+            with connect_drafts(self.dbname) as conn:
+                scope(conn, owner)
+                with self.assertRaises(psycopg.errors.InsufficientPrivilege): conn.execute(statement, (draft['id'],))
+
+
+class ReviewValidationTests(unittest.TestCase):
+    def test_incomplete_invalid_and_inverted_fields_are_visible(self):
+        metadata = {'title':'', 'service':'bad service', 'environment':'prod', 'version_min':'3.0.0',
+                    'version_max_exclusive':'2.0.0', 'key_rotation_enabled':'unknown'}
+        result = validate_review(metadata)
+        self.assertEqual(len(result['issues']), 5)
+        self.assertTrue(result['review_required']); self.assertEqual(result['status'], 'in_progress')
+        self.assertNotIn('version_min', result['validated_metadata'])
+        for bad in ({**metadata, 'approved':True}, {**metadata, 'title':'x'*201}, {**metadata, 'title':'a\x00b'}):
+            with self.assertRaises(DraftInputError): validate_review(bad)

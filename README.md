@@ -109,7 +109,7 @@ See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a loc
 
 ## Private draft intake
 
-Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader, independently of published document permissions. They never enter guidance selection. This first slice has no editing, approval, or publishing action. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
+Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader, independently of published document permissions. They never enter guidance selection. Users can save corrected metadata as private review progress, with missing/invalid fields and stale-save conflicts shown explicitly. Approval and publishing remain unavailable. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
 
 ## Project rename
 

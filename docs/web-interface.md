@@ -51,3 +51,5 @@ The header provides System, Light, and Dark themes. System follows the operating
 ## Private drafts
 
 After connecting, use **Add a document for review** to upload a Markdown file and preview extracted fields. **Load my drafts** lists only your own saved uploads. Preview source and quotations are plain text, and disconnect clears displayed drafts. See [the draft guide](drafts.md) for limits and setup.
+
+**Your metadata edits** lets the owner correct extracted fields and save incomplete progress. Original extraction and source remain visible for comparison. A stale save displays a conflict and preserves typed input; load the latest draft after copying any changes you want to keep. Saving never approves or publishes.
