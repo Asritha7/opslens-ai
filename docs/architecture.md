@@ -57,3 +57,7 @@ Metadata review saves append a revision in `opslens.draft_reviews`, using parent
 ## Independent decisions
 
 Submission records reference exact immutable metadata-review revisions. Owners explicitly share the source and selected snapshot with designated reviewers. A separate private identity allowlist gates reviewer API routes, and a restricted review database account reads submitted sources only. Immutable decisions record an opaque reviewer identity and comment; locks and unique keys prevent overwrites. Decisions do not affect published catalog status or selection. See [submission trust boundaries](submissions.md).
+
+## Publication boundary
+
+An operator-owned publisher allowlist protects a separate publishing API. A restricted database account reads approved snapshots and atomically writes published versions, current reading permissions, and an immutable publication receipt. Source-bound claims are manually attested; quotations and fingerprints are constructed from stored source lines. Selection remains deterministic. See [storage and trust boundaries](publication.md#storage-and-boundaries).

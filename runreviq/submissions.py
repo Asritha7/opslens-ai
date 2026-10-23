@@ -42,11 +42,14 @@ def own_submissions(owner, draft_id, *, dbname='opslens'):
         scope(conn, owner)
         if not conn.execute('SELECT 1 FROM opslens.upload_drafts WHERE id=%s', (draft_id,)).fetchone():
             return None
-        rows = conn.execute('''SELECT s.id,s.revision,s.created_at,d.decision,d.comment,d.created_at
+        rows = conn.execute('''SELECT s.id,s.revision,s.created_at,d.decision,d.comment,d.created_at,p.document_id,p.revision,p.created_at
             FROM opslens.draft_submissions s LEFT JOIN opslens.submission_decisions d ON d.submission_id=s.id
+            LEFT JOIN opslens.publications p ON p.submission_id=s.id
             WHERE s.draft_id=%s ORDER BY s.revision DESC''', (draft_id,)).fetchall()
     return [{'id':str(i),'revision':r,'submitted_at':at.isoformat(),'status':decision or 'pending',
-             'comment':comment,'decided_at':when.isoformat() if when else None} for i,r,at,decision,comment,when in rows]
+             'comment':comment,'decided_at':when.isoformat() if when else None,
+             'publication':{'document_id':doc,'revision':rev,'published_at':pub.isoformat()} if doc else None}
+            for i,r,at,decision,comment,when,doc,rev,pub in rows]
 
 
 def submit(owner, draft_id, revision, *, dbname='opslens'):
@@ -61,11 +64,11 @@ def submit(owner, draft_id, revision, *, dbname='opslens'):
         if review['issues']:
             raise DraftInputError('Complete all metadata before submission')
         # Retrying a submission does not create duplicates or change its decision.
-        row = conn.execute('SELECT id FROM opslens.draft_submissions WHERE draft_id=%s AND revision=%s', (draft_id,revision)).fetchone()
+        row = conn.execute('SELECT s.id, EXISTS (SELECT 1 FROM opslens.publications p WHERE p.submission_id=s.id) FROM opslens.draft_submissions s WHERE draft_id=%s AND revision=%s', (draft_id,revision)).fetchone()
         identifier = row[0] if row else uuid.uuid4()
         if not row:
             conn.execute('INSERT INTO opslens.draft_submissions(id,draft_id,revision) VALUES (%s,%s,%s)', (identifier,draft_id,revision))
-    return {'id':str(identifier),'revision':revision,'published':False}
+    return {'id':str(identifier),'revision':revision,'published':bool(row and row[1])}
 
 
 def review_queue(reviewer, *, dbname='opslens'):
@@ -79,16 +82,16 @@ def review_queue(reviewer, *, dbname='opslens'):
 
 def submission_detail(reviewer, identifier, *, dbname='opslens'):
     with connect_reviewer(dbname) as conn:
-        row = conn.execute('''SELECT s.id,s.revision,u.filename,u.content,u.proposal,r.metadata,d.decision,d.comment
+        row = conn.execute('''SELECT s.id,s.revision,u.filename,u.content,u.proposal,r.metadata,d.decision,d.comment,EXISTS (SELECT 1 FROM opslens.publications p WHERE p.submission_id=s.id)
             FROM opslens.draft_submissions s JOIN opslens.upload_drafts u ON u.id=s.draft_id
             JOIN opslens.draft_reviews r ON r.draft_id=s.draft_id AND r.revision=s.revision
             LEFT JOIN opslens.submission_decisions d ON d.submission_id=s.id
             WHERE s.id=%s AND u.owner<>%s''', (identifier,reviewer)).fetchone()
     if not row:
         return None
-    i,r,name,content,proposal,metadata,decision,comment = row
+    i,r,name,content,proposal,metadata,decision,comment,published = row
     return {'id':str(i),'revision':r,'filename':name,'content':content,'proposal':proposal,
-            'review':validate_review(metadata),'status':decision or 'pending','comment':comment,'published':False}
+            'review':validate_review(metadata),'status':decision or 'pending','comment':comment,'published':published}
 
 
 def decide(reviewer, identifier, decision, comment, *, dbname='opslens'):

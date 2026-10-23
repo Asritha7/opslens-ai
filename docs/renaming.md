@@ -16,3 +16,5 @@ The Docker Compose project `opslens-local`, named volume `opslens-local_postgres
 ## Google-managed labels
 
 The Google Cloud project ID and OAuth client remain the existing resources. The consent-screen app name is managed separately in Google Auth Platform → Branding → App name; it may still show the former name until that label is updated. Do not recreate the project or client, rotate secrets, or change redirect URIs merely to rename the product.
+
+The Docker database container display name is now `runreviq-db`, configured explicitly in `compose.yaml`. Existing installations can use `docker rename opslens-local-db-1 runreviq-db` without stopping PostgreSQL or changing its mounted volume. The Compose project/group still uses `opslens-local`; this does not change the product name.

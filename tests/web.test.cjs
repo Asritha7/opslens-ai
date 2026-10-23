@@ -179,5 +179,33 @@ test('submission sends the displayed saved revision and shows owner feedback',as
   assert.equal(h.pending[4].url,'/v1/drafts/draft-id/submit'); assert.deepEqual(JSON.parse(h.pending[4].options.body),{revision:2});
   h.respond(4,{id:'s',revision:2,published:false}); await tick();
   h.respond(5,{submissions:[{revision:2,status:'changes_requested',comment:'Clarify it'}]}); await tick();
-  assert.ok(descendants(h.get('draft-preview')).some(e=>e.textContent==='Revision 2 · changes requested · Clarify it'));
+  assert.ok(descendants(h.get('draft-preview')).some(e=>e.textContent==='Revision 2 · changes requested · Clarify it · Unpublished'));
+});
+
+test('publisher access is separate and denied access does not load documents',async()=>{
+  const h=harness();await h.login();h.get('load-publish-queue').fire('click');
+  assert.equal(h.pending[1].url,'/v1/publisher-access');h.respond(1,{can_publish:false});await tick();
+  assert.equal(h.pending.length,2);assert.match(h.get('publish-status').textContent,/has not been assigned/);
+});
+test('publication uses explicit roles, verification and source ranges; clears on logout',async()=>{
+  const h=harness();await h.login();h.get('load-publish-queue').fire('click');h.respond(1,{can_publish:true});await tick();
+  h.respond(2,{submissions:[{id:'s1',filename:'guide.md',revision:1}]});await tick();
+  find(h.get('publish-queue'),'guide.md · approved revision 1').fire('click');
+  h.respond(3,{id:'s1',filename:'guide.md',revision:1,metadata:{title:'Guide'},review_comment:'Checked',content:'# Guide\n<script>text</script>'});await tick();
+  const nodes=descendants(h.get('publish-preview'));
+  assert.ok(nodes.some(n=>n.tag==='li'&&n.textContent==='<script>text</script>'));
+  const boxes=nodes.filter(n=>n.type==='checkbox');boxes[0].checked=true;boxes[1].checked=true;
+  nodes.find(n=>n.pattern).value='rotate_keys';for(const n of nodes.filter(n=>n.type==='number'))n.value='2';
+  nodes.find(n=>n.tag==='form').fire('submit');
+  assert.equal(h.pending[4].url,'/v1/publications/s1');
+  assert.deepEqual(JSON.parse(h.pending[4].options.body),{metadata_verified:true,allowed_roles:['platform'],claims:[{action:'rotate_keys',rule:'must',start_line:2,end_line:2}]});
+  h.get('disconnect').fire('click');h.respond(4,{document_id:'UPLOAD-1',revision:1,published_at:'now'});await tick();
+  assert.equal(h.get('publish-preview').children.length,0);assert.equal(h.get('load-publish-queue').disabled,true);
+});
+test('publication rejection preserves form and explains invalid claims',async()=>{
+  const h=harness();await h.login();h.get('load-publish-queue').fire('click');h.respond(1,{can_publish:true});await tick();
+  h.respond(2,{submissions:[{id:'s1',filename:'guide.md',revision:1}]});await tick();find(h.get('publish-queue'),'guide.md · approved revision 1').fire('click');
+  h.respond(3,{id:'s1',filename:'guide.md',revision:1,metadata:{},review_comment:'Checked',content:'text'});await tick();
+  const form=descendants(h.get('publish-preview')).find(n=>n.tag==='form');form.fire('submit');h.respond(4,{},422);await tick();
+  assert.match(h.get('publish-status').textContent,/source line ranges/);assert.equal(form.children[0].disabled,false);
 });

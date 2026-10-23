@@ -35,7 +35,7 @@ No real reviewer is enabled automatically. For a meaningful independent review, 
 
 Select **Load reviewer queue**. Unauthorized accounts see an explanation. Authorized reviewers see up to 100 pending submissions, oldest first, excluding their own. Open a submission, inspect its metadata, original extraction/source lines, and source text. Choose **Request changes** or **Approve this revision**, enter a nonempty comment (at most 2,000 characters), and select **Record decision**.
 
-Each submission has one final decision. Concurrent reviewers cannot overwrite one another: the second save receives 409 and must reload. A new review round uses a new saved metadata revision. A successful decision displays that the document is still unpublished. All document and comment content is rendered as plain text.
+Each submission has one final decision. Concurrent reviewers cannot overwrite one another: the second save receives 409 and must reload. A new review round uses a new saved metadata revision. A successful decision displays that approval alone has not published the document. Subsequent publication is a separately authorized action. All document and comment content is rendered as plain text.
 
 ## API
 
@@ -43,7 +43,7 @@ All endpoints require an assigned authenticated identity. Cookie-based POSTs ret
 
 | Endpoint | Contract |
 |---|---|
-| `POST /v1/drafts/{uuid}/submit` | Owner; JSON `{"revision": 1}`; returns submission ID, revision, `published: false` |
+| `POST /v1/drafts/{uuid}/submit` | Owner; JSON `{"revision": 1}`; returns submission ID, revision, the current publication flag |
 | `GET /v1/drafts/{uuid}/submissions` | Owner; submission history with status, comment, submitted/decided times |
 | `GET /v1/reviewer-access` | Reports `can_review` from the private allowlist |
 | `GET /v1/submissions` | Reviewer only; pending queue (maximum 100) |

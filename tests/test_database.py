@@ -31,7 +31,7 @@ class DatabaseTests(unittest.TestCase):
         from runreviq.database import connect, ingest
         # This database was created by this test class, never the development database.
         with connect(dbname=self.dbname) as conn:
-            conn.execute('TRUNCATE opslens.document_versions, opslens.documents')
+            conn.execute('TRUNCATE opslens.publications, opslens.document_versions, opslens.documents')
         self.docs = load_documents()
         ingest(self.docs, dbname=self.dbname)
 

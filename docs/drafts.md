@@ -64,3 +64,7 @@ Existing installations run `.venv/bin/python -m runreviq.database bootstrap`, th
 ## Explicit sharing boundary
 
 Unsubmitted drafts are private to their owner. **Submit saved revision N** makes the original source/extraction and that exact saved metadata revision available to all designated independent reviewers. Later unsubmitted metadata remains private. An approval is a separate recorded decision, not a change to the draft or publication status.
+
+## After approval
+
+A separately authorized publisher may publish an approved snapshot. The private draft itself stays separate; only the published copy becomes available under explicitly selected reading roles. **Check submission status** shows publication receipts. See [publication](publication.md).
