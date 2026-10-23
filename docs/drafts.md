@@ -1,6 +1,6 @@
 # Private Markdown draft intake
 
-This slice lets an authenticated user with an assigned role save a Markdown document and inspect an extraction proposal. Users can save metadata corrections as private review progress. It does not approve, publish, or recommend the upload. All three existing roles may create their own private drafts; this is separate from authority over published documents.
+This slice lets an authenticated user with an assigned role save a Markdown document and inspect an extraction proposal. Users can save metadata corrections as private review progress. Submission to a separately authorized reviewer can receive an independent decision; it does not publish or recommend the upload. All three existing roles may create their own private drafts; this is separate from authority over published documents.
 
 ## User flow
 
@@ -17,13 +17,13 @@ The extractor supports the explicit Applicability section in [the template](runb
 - Simple display filenames ending in `.md` (case-insensitive), up to 120 characters. Start with an ASCII letter/digit; remaining characters may include ASCII letters, digits, spaces, dots, underscores, and hyphens. Paths are rejected, and filenames are never used to open server files.
 - At most 20 drafts per identity. Each successful upload creates a new draft, including repeat uploads. Quota enforcement is serialized per owner in the database.
 - This slice has no delete UI or automatic retention. Metadata editing is supported, but source Markdown is immutable. A trusted database operator must handle cleanup when needed; it must not erase published evidence.
-- No automatic approval, publishing, cross-user sharing, or paid service is added.
+- No automatic approval, publishing, or paid service is added. Explicit submission shares source and selected metadata with designated reviewers; see [submission workflow](submissions.md).
 
 ## Storage and authorization
 
 Migration 002 adds `opslens.upload_drafts` with UUID ID, opaque owner key, filename, source content, extraction proposal, and creation time. Published revisions and their current ACLs are untouched. The owner key hashes the authentication mode plus subject; Google and demo identities use separate namespaces. Changing a person's role does not transfer their drafts to others with that role. Removing their assigned role blocks subsequent draft access.
 
-`opslens_draft_writer` is a separate non-superuser login, with only SELECT and INSERT on the draft and review tables. It cannot read/write published documents, update/delete drafts, or assume evidence-reader roles. Existing evidence-reader accounts remain read-only and cannot read drafts.
+`opslens_draft_writer` is a separate non-superuser login, with only SELECT and INSERT on the draft and review tables. It cannot read/write published documents, update/delete drafts, decide submissions, or assume evidence-reader roles. Existing evidence-reader accounts remain read-only and cannot read drafts.
 
 The backend sets a transaction-local owner context derived from authenticated identity. PostgreSQL RLS filters reads and checks inserts against that context. The API accepts no owner override and uses parameterized queries. Missing and another owner's draft both return 404. Source and metadata are rendered with textContent, never HTML.
 
@@ -49,7 +49,7 @@ Add the private `DRAFTS_PASSWORD`, run the numbered migrations, and restart the 
 
 ## Edit and save review progress
 
-Open a draft, inspect **Original extraction** and its source lines, then edit the six fields under **Your metadata edits**. Save with **Save review progress**. The original Markdown and extraction never change. **Load my drafts** reopens the latest saved values. Editing source text, approving, publishing, or assigning authority is not supported.
+Open a draft, inspect **Original extraction** and its source lines, then edit the six fields under **Your metadata edits**. Save with **Save review progress**. The original Markdown and extraction never change. **Load my drafts** reopens the latest saved values. Editing source text, publishing, or assigning authority from this editor is not supported. Independent reviewer decisions use the separate [submission workflow](submissions.md).
 
 All six fields are strings: title, service, environment, version_min, version_max_exclusive, key_rotation_enabled. Blank means missing; key rotation `none` explicitly means no requirement. Environment accepts production/staging, versions use X.Y.Z with an exclusive upper bound greater than the lower bound, and service uses an explicit identifier. Inputs are at most 200 characters each, with tighter semantic rules inherited from extraction. Unknown fields and non-string values are rejected. Permissions, verification, and approval fields cannot be submitted.
 
@@ -60,3 +60,7 @@ Incomplete or semantically invalid edits can be saved. The response shows field 
 Migration 003 adds append-only `opslens.draft_reviews` snapshots. A transaction lock serializes saves per draft, and revision checking prevents silent overwrites. RLS derives ownership through the parent draft; no UPDATE/DELETE grant is added. A draft has at most 100 saved review revisions. Earlier snapshots remain stored, but this UI displays only the latest. This is review progress, not a complete audit or approval system. The trusted application/database-operator boundary still applies.
 
 Existing installations run `.venv/bin/python -m runreviq.database bootstrap`, then restart the API. No new password is required, and previously saved drafts remain accessible with `review: null` until first edited.
+
+## Explicit sharing boundary
+
+Unsubmitted drafts are private to their owner. **Submit saved revision N** makes the original source/extraction and that exact saved metadata revision available to all designated independent reviewers. Later unsubmitted metadata remains private. An approval is a separate recorded decision, not a change to the draft or publication status.

@@ -39,7 +39,7 @@ Source text cannot set allowed roles, publication status, verification status, o
 4. Transfer reviewed metadata into the catalog. Supply the document ID, revision, source path, verified claims, and trusted policy fields. For an existing document, content or metadata changes require a new revision.
 5. Use the existing ingestion command, which validates and publishes the batch transactionally.
 
-Review transfer is manual in this slice. The browser now stores private drafts and displays extraction proposals, source lines, and issues. It supports saved metadata edits while preserving the original proposal. It provides no approval, publishing, automatic promotion, or background worker; see [draft intake](drafts.md). Existing fictional source files and stored revisions are unchanged. Running extraction on the existing prose-only runbooks will report missing applicability fields rather than borrow uncited values from the catalog.
+Review transfer is manual in this slice. The browser now stores private drafts and displays extraction proposals, source lines, and issues. It supports saved metadata edits while preserving the original proposal. It supports independent decisions on explicitly submitted revisions, but provides no publishing, automatic promotion, or background worker; see [draft intake](drafts.md). Existing fictional source files and stored revisions are unchanged. Running extraction on the existing prose-only runbooks will report missing applicability fields rather than borrow uncited values from the catalog.
 
 ## User-facing selection responses
 

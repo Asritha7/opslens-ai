@@ -78,6 +78,8 @@ for role in ('PLATFORM', 'SECURITY', 'INTERN'):
         text += '\n' + key + '=' + secrets.token_urlsafe(32) + '\n'
 if not any(line.startswith('DRAFTS_PASSWORD=') for line in text.splitlines()):
     text += '\nDRAFTS_PASSWORD=' + secrets.token_urlsafe(32) + '\n'
+if not any(line.startswith('REVIEW_PASSWORD=') for line in text.splitlines()):
+    text += '\nREVIEW_PASSWORD=' + secrets.token_urlsafe(32) + '\n'
 p.write_text(text)
 p.chmod(0o600)
 PY
@@ -87,7 +89,7 @@ docker compose up -d --wait db
 .venv/bin/python -m runreviq.database ingest
 ```
 
-Bootstrap creates three non-superuser, read-only evidence readers and a separate restricted draft writer, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
+Bootstrap creates three non-superuser, read-only evidence readers, a separate restricted draft writer, and a restricted submission-review account, then applies numbered schema migrations transactionally. It records the migration checksum and refuses edited applied migrations. It does not reset passwords for existing accounts. Keep `.env` safe; changing an existing password there alone does not rotate the database password.
 
 The admin credential is used for setup, ingestion, and test-database administration. Database-backed selection uses `opslens_reader_platform`, `opslens_reader_security`, or `opslens_reader_intern`, with row access checked against the actual database login. `.env` is a local literal KEY=value file, not a shell script.
 
@@ -224,3 +226,7 @@ After signing in with an assigned role, scroll to **Add a document for review**.
 ## Saved draft metadata review
 
 Run `.venv/bin/python -m runreviq.database bootstrap` to apply additive migration 003, then restart the API and sign in again. Existing drafts and source proposals are preserved. Open a draft, edit **Your metadata edits**, and select **Save review progress**. Incomplete values remain visibly flagged; drafts stay unpublished. See [review behavior and conflicts](docs/drafts.md#edit-and-save-review-progress).
+
+## Independent submission review
+
+Rerun the credential-generation block to add the missing `REVIEW_PASSWORD`, run `.venv/bin/python -m runreviq.database bootstrap` for migration 004, and restart the API. Initialize `.local/reviewers.json` with `.venv/bin/python -m runreviq.submissions init-reviewers`. It grants nobody reviewer access. Explicit operator assignment of a different, verified identity is required for independent review; see [reviewer setup and sharing boundaries](docs/submissions.md). Publishing remains unavailable.

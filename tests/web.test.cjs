@@ -147,3 +147,37 @@ test('review response after logout cannot restore private content',async()=>{
   h.respond(3,{revision:1,metadata:{},issues:[]}); await tick();
   assert.equal(h.get('draft-preview').children.length,0); assert.equal(h.get('draft-fields').disabled,true);
 });
+test('reading access does not automatically load the reviewer queue',async()=>{
+  const h=harness(); await h.login(); h.get('load-review-queue').fire('click');
+  assert.equal(h.pending[1].url,'/v1/reviewer-access'); h.respond(1,{can_review:false}); await tick();
+  assert.equal(h.pending.length,2); assert.match(h.get('review-status').textContent,/not been assigned/);
+});
+test('reviewer decision carries only decision and comment and stays unpublished',async()=>{
+  const h=harness(); await h.login(); h.get('load-review-queue').fire('click');
+  h.respond(1,{can_review:true}); await tick(); h.respond(2,{submissions:[{id:'sub-id',filename:'source.md',revision:1}]}); await tick();
+  find(h.get('review-queue'),'source.md · revision 1').fire('click');
+  h.respond(3,{id:'sub-id',filename:'source.md',revision:1,status:'pending',content:'<script>no()</script>',proposal:{},review:{metadata:{title:'Example'}}}); await tick();
+  const elements=descendants(h.get('submission-preview'));
+  assert.equal(elements.find(e=>e.tag==='pre'&&e.textContent.includes('<script>')).textContent,'<script>no()</script>');
+  elements.find(e=>e.id==='review-decision').value='changes_requested'; elements.find(e=>e.id==='review-comment').value='Clarify source';
+  elements.find(e=>e.tag==='form').fire('submit');
+  assert.deepEqual(JSON.parse(h.pending[4].options.body),{decision:'changes_requested',comment:'Clarify source'});
+  h.respond(4,{status:'changes_requested',comment:'Clarify source'}); await tick();
+  assert.match(h.get('review-status').textContent,/unpublished/);
+});
+test('review queue response after logout cannot restore submitted source',async()=>{
+  const h=harness(); await h.login(); h.get('load-review-queue').fire('click');
+  h.respond(1,{can_review:true}); await tick(); h.get('disconnect').fire('click');
+  h.respond(2,{submissions:[{id:'s',filename:'private.md',revision:1}]}); await tick();
+  assert.equal(h.get('review-queue').children.length,0); assert.equal(h.get('submission-preview').children.length,0);
+});
+test('submission sends the displayed saved revision and shows owner feedback',async()=>{
+  const {h,editor}=await reviewHarness(); editor.fire('submit');
+  const metadata=JSON.parse(h.pending[3].options.body).metadata;
+  h.respond(3,{revision:2,metadata,issues:[]}); await tick();
+  find(h.get('draft-preview'),'Submit saved revision 2').fire('click');
+  assert.equal(h.pending[4].url,'/v1/drafts/draft-id/submit'); assert.deepEqual(JSON.parse(h.pending[4].options.body),{revision:2});
+  h.respond(4,{id:'s',revision:2,published:false}); await tick();
+  h.respond(5,{submissions:[{revision:2,status:'changes_requested',comment:'Clarify it'}]}); await tick();
+  assert.ok(descendants(h.get('draft-preview')).some(e=>e.textContent==='Revision 2 · changes requested · Clarify it'));
+});
