@@ -18,7 +18,7 @@ The [official Google OIDC guide](https://developers.google.com/identity/openid-c
 
 At startup, the presence of `.local/google-oidc.json` selects Google mode. Demo bearer keys are then disabled, including the demo HTTP CLI. Absence selects the existing demo mode. Mode is fixed for that process: removing or corrupting a configured Google file fails closed with 503, without falling back to demo keys. Changing modes requires an intentional configuration change and restart.
 
-Current role assignments are read on every authenticated request. Removing a subject blocks subsequent evidence requests for its existing sessions; changing a role immediately changes its reader account. A signed-in account with no assignment may view only its own subject/assignment status, not evidence or drafts. Assigned accounts may save private drafts but cannot approve or publish them. The operating-system owner and database administrator remain trusted. Existing RBAC, read-only database accounts, and PostgreSQL row-level security continue to apply, including to historical revisions.
+Current role assignments are read on every authenticated request. Removing a subject blocks subsequent evidence requests for its existing sessions; changing a role immediately changes its reader account. A signed-in account with no assignment may view only its own subject/assignment status, not evidence or drafts. Assigned accounts may save private drafts. Reading-role assignment alone grants no review authority; separately designated reviewers can decide other authors’ submissions. Publishing remains unavailable. The operating-system owner and database administrator remain trusted. Existing RBAC, read-only database accounts, and PostgreSQL row-level security continue to apply, including to historical revisions.
 
 ## Login and session protection
 
@@ -63,3 +63,5 @@ The operator registered a Google Web OAuth client and entered its credentials th
 5. A query for identity-service, production, version 2.4.0, with key rotation enabled returned approved guidance from RB-042 and RB-043, revision 1.
 
 This record contains no client identifiers, subject identifiers, credentials, or session cookies. The live check covered login, assignment, session restoration, and permitted evidence retrieval. Logout, expiry, and role revocation are covered by automated tests but were not exercised against this live Google session during this check. This is local integration evidence, not production certification or a guarantee for other client registrations.
+
+Reviewer authority is separate from the Google reading-role assignment. The operator's private reviewer allowlist is consulted on every reviewer request; self-review is disallowed. No reviewer is assigned automatically. See [reviewer setup](submissions.md#reviewer-authority-and-setup).

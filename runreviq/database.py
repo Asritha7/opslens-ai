@@ -25,7 +25,7 @@ def credentials():
                 if not separator:
                     raise ValueError('Invalid .env line; expected KEY=value')
                 values[key.strip()] = value.strip()
-    for key in ['POSTGRES_PASSWORD', 'DRAFTS_PASSWORD'] + [f'READER_{r.upper()}_PASSWORD' for r in ROLES]:
+    for key in ['POSTGRES_PASSWORD', 'DRAFTS_PASSWORD', 'REVIEW_PASSWORD'] + [f'READER_{r.upper()}_PASSWORD' for r in ROLES]:
         if key in os.environ:
             values[key] = os.environ[key]
     return values
@@ -69,6 +69,16 @@ def bootstrap(dbname='opslens'):
             raise ValueError('Refusing privileged draft writer')
         if conn.execute("SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='opslens_draft_writer'").fetchone():
             raise ValueError('Refusing draft writer with inherited memberships')
+        password = secrets.get('REVIEW_PASSWORD')
+        if not password:
+            raise ValueError('Missing REVIEW_PASSWORD; see SETUP.md')
+        existing = conn.execute("SELECT rolsuper, rolcreaterole, rolcreatedb, rolbypassrls FROM pg_roles WHERE rolname='opslens_review_operator'").fetchone()
+        if existing is None:
+            conn.execute(sql.SQL('CREATE ROLE opslens_review_operator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD {}').format(sql.Literal(password)))
+        elif any(existing):
+            raise ValueError('Refusing privileged review operator')
+        if conn.execute("SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname='opslens_review_operator'").fetchone():
+            raise ValueError('Refusing review operator with memberships')
         conn.execute('CREATE TABLE IF NOT EXISTS public.opslens_migrations (version text PRIMARY KEY, checksum text NOT NULL)')
         for path in sorted((ROOT / 'database/migrations').glob('[0-9][0-9][0-9]_*.sql')):
             version_id = path.name.split('_', 1)[0]

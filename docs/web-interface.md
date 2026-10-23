@@ -42,7 +42,7 @@ flowchart LR
 
 The public shell contains no credentials or evidence. Only three allowlisted assets are served. Evidence requests stay on the same origin and reject redirects. Responses use no-store, nosniff, no-referrer, and a restrictive Content Security Policy. Source text and quotations use textContent, so Markdown and HTML are displayed as text rather than executed. The UI clears a prior document before fetching another one.
 
-This is a loopback-only prototype without TLS, rate limiting, production identity management, or audit history. Public fictional fixture files are not confidential. The interface can save private unpublished drafts. Published evidence remains read-only; metadata approval, publication ingestion, and permission changes remain trusted operator tasks. There is no general chat, AI generation, semantic search, or automatic remediation.
+This is a loopback-only prototype without TLS, rate limiting, production identity management, or audit history. Public fictional fixture files are not confidential. The interface can save private unpublished drafts. Published evidence remains read-only; publication ingestion and permission changes remain trusted operator tasks; independent submission decisions require separately assigned reviewer authority. There is no general chat, AI generation, semantic search, or automatic remediation.
 
 ## Appearance
 
@@ -53,3 +53,7 @@ The header provides System, Light, and Dark themes. System follows the operating
 After connecting, use **Add a document for review** to upload a Markdown file and preview extracted fields. **Load my drafts** lists only your own saved uploads. Preview source and quotations are plain text, and disconnect clears displayed drafts. See [the draft guide](drafts.md) for limits and setup.
 
 **Your metadata edits** lets the owner correct extracted fields and save incomplete progress. Original extraction and source remain visible for comparison. A stale save displays a conflict and preserves typed input; load the latest draft after copying any changes you want to keep. Saving never approves or publishes.
+
+## Submission review
+
+Draft owners can explicitly submit a saved complete revision and check decision comments. The sharing notice explains reviewer access to the source and snapshot. **Submitted documents** provides a separate reviewer queue with approve/request-changes decisions. Reading roles do not confer review authority, and self-review is blocked. See [the workflow](submissions.md).

@@ -9,6 +9,7 @@ Select applicable fictional operational guidance using explicit metadata, before
 - [Browser workspace and access controls](docs/web-interface.md)
 - [API request and response contract](docs/api.md)
 - [Private draft upload and preview](docs/drafts.md)
+- [Submission and independent review](docs/submissions.md)
 - [Metadata extraction and review](docs/metadata-proposals.md)
 - [Validated claim citations](docs/citations.md)
 - [Runbook authoring template](docs/runbook-template.md)
@@ -109,8 +110,12 @@ See [the retrieval contract](docs/api.md#document-revision-retrieval) and [a loc
 
 ## Private draft intake
 
-Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader, independently of published document permissions. They never enter guidance selection. Users can save corrected metadata as private review progress, with missing/invalid fields and stale-save conflicts shown explicitly. Approval and publishing remain unavailable. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
+Signed-in users with an assigned role can upload Markdown in the browser, save an unpublished draft, and inspect proposed metadata, missing values, and source lines. Drafts persist in PostgreSQL and are scoped to the uploader until an explicit submission shares the source and selected metadata revision with designated reviewers. They never enter guidance selection. Users can save corrected metadata as private review progress, with missing/invalid fields and stale-save conflicts shown explicitly. Independent submission decisions are supported; publishing remains unavailable. See [setup](SETUP.md#private-markdown-drafts) and [the draft contract](docs/drafts.md).
 
 ## Project rename
 
 This project is now **Runreviq** (formerly OpsLens AI). Repository: https://github.com/Asritha7/runreviq. Python commands use `python -m runreviq.<module>`; see [rename and compatibility notes](docs/renaming.md) before updating an existing checkout.
+
+## Submission decisions
+
+Authors may submit their latest complete saved review. Separately designated reviewers can inspect the exact snapshot and record approval or request changes with a comment. Self-review and decision overwrites are blocked. Approval does not publish or enter guidance selection. Reviewer access is denied by default; see [the workflow and setup](docs/submissions.md).

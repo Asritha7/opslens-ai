@@ -19,6 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from runreviq.database import load_authorized_documents, load_authorized_revision
+from runreviq import submissions
 from runreviq.selector import ROOT, ROLES, select
 from runreviq.oidc import GoogleSessions, install_routes
 from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES, save_review, ReviewConflict
@@ -85,9 +86,20 @@ class ReviewRequest(BaseModel):
     metadata: ReviewMetadata
 
 
+class SubmissionRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    revision: int = Field(ge=1, le=100)
+
+
+class DecisionRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    decision: Literal['approved', 'changes_requested']
+    comment: str = Field(min_length=1, max_length=2000)
+
+
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
                revision_loader=load_authorized_revision, oidc_file=OIDC_FILE, oidc_provider=None,
-               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft, review_writer=save_review):
+               draft_writer=create_draft, draft_lister=list_drafts, draft_reader=get_draft, review_writer=save_review, reviewers_file=submissions.REVIEWERS_FILE):
     app = FastAPI(title='Runreviq local API', docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
     # Mode is fixed at startup. Removing a configured file fails closed, not back
@@ -181,6 +193,54 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
         if result is None:
             raise HTTPException(404, 'Draft not found')
         return result
+
+    def workflow_call(function, *args):
+        try:
+            result = function(*args)
+        except ReviewConflict:
+            raise HTTPException(409, 'Revision changed or submission already decided; reload') from None
+        except DraftInputError:
+            raise HTTPException(422, 'Complete valid metadata or supply a nonempty decision comment') from None
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Review service unavailable') from None
+        if result is None:
+            raise HTTPException(404, 'Submission or draft not found')
+        return result
+
+    def reviewer_access(principal):
+        try:
+            return submissions.can_review('google' if sessions else 'demo', principal['subject'], reviewers_file)
+        except (ValueError, OSError):
+            raise HTTPException(503, 'Reviewer configuration unavailable') from None
+
+    def reviewer(principal=Depends(identity)):
+        if not reviewer_access(principal):
+            raise HTTPException(403, 'Reviewer permission must be assigned separately by the operator')
+        return draft_owner(principal)
+
+    @app.get('/v1/reviewer-access')
+    def review_access(principal=Depends(identity)):
+        return {'can_review': reviewer_access(principal)}
+
+    @app.post('/v1/drafts/{draft_id}/submit')
+    def submit_draft(draft_id: UUID, body: SubmissionRequest, principal=Depends(identity)):
+        return workflow_call(submissions.submit, draft_owner(principal), draft_id, body.revision)
+
+    @app.get('/v1/drafts/{draft_id}/submissions')
+    def draft_submissions(draft_id: UUID, principal=Depends(identity)):
+        return {'submissions': workflow_call(submissions.own_submissions, draft_owner(principal), draft_id)}
+
+    @app.get('/v1/submissions')
+    def pending_submissions(actor=Depends(reviewer)):
+        return {'submissions': workflow_call(submissions.review_queue, actor)}
+
+    @app.get('/v1/submissions/{submission_id}')
+    def submitted_revision(submission_id: UUID, actor=Depends(reviewer)):
+        return workflow_call(submissions.submission_detail, actor, submission_id)
+
+    @app.post('/v1/submissions/{submission_id}/decision')
+    def submission_decision(submission_id: UUID, body: DecisionRequest, actor=Depends(reviewer)):
+        return workflow_call(submissions.decide, actor, submission_id, body.decision, body.comment)
 
     @app.get('/', include_in_schema=False)
     def workspace():

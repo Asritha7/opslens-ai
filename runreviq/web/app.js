@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let authMode = 'loading';
-  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null, draftSequence = 0;
+  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null, draftSequence = 0, reviewSequence = 0;
   const node = (tag, text, className) => {
     const item = document.createElement(tag);
     if (text !== undefined) item.textContent = text;
@@ -23,6 +23,7 @@
     $('access-status').textContent = message; $('result').replaceChildren(); clearViewer();
     $('query-status').textContent = 'Connect and describe your situation to begin.';
     draftSequence++; $('draft-fields').disabled = true; $('draft-file').value = ''; $('draft-list').replaceChildren(); $('draft-preview').replaceChildren(); $('draft-status').textContent = 'Connect to upload or view your drafts.';
+    reviewSequence++; $('review-queue').replaceChildren(); $('submission-preview').replaceChildren(); $('load-review-queue').disabled = true; $('review-status').textContent = 'Connect to check reviewer access.';
     $('connect').disabled = false; $('submit-query').disabled = false;
   }
   async function request(path, options = {}, credential = token) {
@@ -56,7 +57,7 @@
       const identity = await request('/v1/me', {}, credential);
       if (generation !== epoch) return;
       token = credential; $('identity').textContent = `${identity.subject} · ${identity.role}`;
-      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
+      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
       $('access-status').textContent = 'Connected. Access is limited to your assigned role.'; $('service').focus();
     } catch (error) { if (generation === epoch) fail(error, 'access-status'); }
     finally { if (generation === epoch) $('connect').disabled = false; }
@@ -92,7 +93,7 @@
             $('access-status').textContent = `Signed in, but no role is assigned. Give the operator your Google subject ID: ${identity.subject}`;
             return;
           }
-          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
+          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
           $('identity').textContent = `Google account · ${identity.role}`;
           $('access-status').textContent = 'Connected with a server session. Disconnect to sign out.';
         } catch (error) {
@@ -207,6 +208,7 @@
     const source = node('details'); source.append(node('summary', 'View stored Markdown'), node('pre', draft.content)); root.append(source);
     root.append(node('p', 'Original source and extraction stay unchanged. Your edits are private review progress, not approval or publication.', 'hint'));
     renderReviewEditor(draft, root);
+    renderSubmissionControls(draft, root);
   }
   function renderReviewEditor(draft, root) {
     root.append(node('h3', 'Your metadata edits'));
@@ -245,6 +247,91 @@
       finally { if (current()) { fields.disabled = false; $('draft-fields').disabled = false; } }
     });
   }
+  function workflowMessage(error) {
+    if (error.status === 409) return 'This revision changed or already has a decision. Reload before continuing.';
+    if (error.status === 422) return 'Save complete, valid metadata before submitting. Decisions require a nonempty comment.';
+    return error.status ? error.message : 'Could not reach the local review service. Retry when it is available.';
+  }
+  function renderSubmissionControls(draft, root) {
+    root.append(node('h3', 'Submit for independent review'));
+    root.append(node('p', 'Submission shares this document’s full source, original extraction, and selected saved metadata revision with designated reviewers. Unsaved edits are excluded. Approval will not publish it.', 'hint'));
+    const status = node('p'), history = node('div'); status.role = 'status';
+    const generation = epoch, sequence = draftSequence;
+    const current = () => generation === epoch && sequence === draftSequence;
+    const loadHistory = async () => {
+      const result = await request(`/v1/drafts/${encodeURIComponent(draft.id)}/submissions`);
+      if (!current()) return;
+      history.replaceChildren();
+      for (const item of result.submissions) history.append(node('p', `Revision ${item.revision} · ${item.status.replaceAll('_', ' ')}${item.comment ? ' · ' + item.comment : ''}`));
+      if (!result.submissions.length) history.append(node('p', 'No submitted revisions yet.'));
+    };
+    const submit = button(draft.review ? `Submit saved revision ${draft.review.revision}` : 'Save complete metadata before submitting', async () => {
+      submit.disabled = true; status.textContent = 'Submitting saved revision…';
+      try {
+        await request(`/v1/drafts/${encodeURIComponent(draft.id)}/submit`, {method:'POST', body:JSON.stringify({revision:draft.review.revision})});
+        if (!current()) return;
+        status.textContent = 'Submitted for independent review. Still unpublished.'; await loadHistory();
+      } catch (error) { if (current()) { if(error.status===401) fail(error,'draft-status'); else status.textContent=workflowMessage(error); } }
+      finally { if(current()) submit.disabled = !draft.review || !!draft.review.issues.length; }
+    });
+    submit.disabled = !draft.review || !!draft.review.issues.length;
+    const load = button('Check submission status', async () => {
+      try { await loadHistory(); } catch (error) { if(current()) { if(error.status===401) fail(error,'draft-status'); else status.textContent=workflowMessage(error); } }
+    });
+    root.append(submit, load, status, history);
+  }
+  async function reviewerOperation(action) {
+    if (!token) return;
+    const generation=epoch, sequence=++reviewSequence;
+    const current=()=>generation===epoch && sequence===reviewSequence;
+    $('load-review-queue').disabled=true; $('submission-preview').replaceChildren(); $('review-queue').replaceChildren();
+    $('review-status').textContent='Loading review workspace…';
+    try { await action(current); }
+    catch(error) { if(current()) { $('review-queue').replaceChildren(); $('submission-preview').replaceChildren(); if(error.status===401) fail(error,'review-status'); else $('review-status').textContent=workflowMessage(error); } }
+    finally { if(current()) $('load-review-queue').disabled=false; }
+  }
+  $('load-review-queue').addEventListener('click',()=>reviewerOperation(async current=>{
+    const access=await request('/v1/reviewer-access'); if(!current()) return;
+    if(!access.can_review) { $('review-status').textContent='Reviewer permission has not been assigned to your account. Reading roles do not grant it.'; return; }
+    const result=await request('/v1/submissions'); if(!current()) return;
+    $('review-status').textContent=result.submissions.length ? 'Pending submissions (up to 100, oldest first). Your own documents are excluded.' : 'No pending submissions from other authors.';
+    for(const item of result.submissions) $('review-queue').append(button(`${item.filename} · revision ${item.revision}`,()=>reviewerOperation(async active=>{
+      const detail=await request(`/v1/submissions/${encodeURIComponent(item.id)}`); if(!active()) return;
+      renderSubmitted(detail); $('review-status').textContent='Inspect the source and submitted metadata before recording a decision.';
+    })));
+  }));
+  function renderSubmitted(item) {
+    const root=$('submission-preview'); root.append(node('h3', `${item.filename} · submitted revision ${item.revision}`),node('p','Unpublished · '+item.status.replaceAll('_',' ')));
+    const table=node('table',undefined,'metadata-table');
+    for(const [field,value] of Object.entries(item.review.metadata)) { const row=node('tr'); row.append(node('th',draftLabels[field]||field),node('td',value)); table.append(row); }
+    root.append(table);
+    const original=node('details'); original.append(node('summary','Original extraction and source lines'));
+    for(const [field,value] of Object.entries(item.proposal.proposed_metadata||{})) original.append(node('p',`${draftLabels[field]||field}: ${value===null?'No requirement':String(value)}`));
+    for(const issue of item.proposal.issues||[]) original.append(node('p',`${draftLabels[issue.field]||issue.field}: ${issue.reason.replaceAll('_',' ')}`));
+    for(const [field,entries] of Object.entries(item.proposal.provenance||{})) for(const entry of entries) original.append(node('p',`${draftLabels[field]||field} · line ${entry.line}`),node('blockquote',entry.quote));
+    root.append(original);
+    const source=node('details'); source.append(node('summary','Submitted document source'),node('pre',item.content)); root.append(source);
+    if(item.status!=='pending') { root.append(node('p',item.comment||'')); return; }
+    const form=node('form'), fields=node('fieldset'), choice=node('select'), comment=node('textarea');
+    choice.id='review-decision'; choice.required=true;
+    for(const [value,label] of [['','Choose a decision'],['changes_requested','Request changes'],['approved','Approve this revision']]) { const option=node('option',label); option.value=value; choice.append(option); }
+    comment.id='review-comment'; comment.maxLength=2000; comment.required=true;
+    const label=node('label','Decision'); label.htmlFor=choice.id; const commentLabel=node('label','Review comment (required)'); commentLabel.htmlFor=comment.id;
+    const save=node('button','Record decision'); save.type='submit';
+    fields.append(label,choice,commentLabel,comment,node('p','This decision is final for this submitted revision. Approval does not publish or grant document access.', 'hint'),save);form.append(fields);root.append(form);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault(); if(!token||fields.disabled) return;
+      const generation=epoch, sequence=reviewSequence, current=()=>generation===epoch&&sequence===reviewSequence;
+      fields.disabled=true; $('load-review-queue').disabled=true;
+      try {
+        const result=await request(`/v1/submissions/${encodeURIComponent(item.id)}/decision`,{method:'POST',body:JSON.stringify({decision:choice.value,comment:comment.value})});
+        if(!current()) return;
+        root.replaceChildren(); renderSubmitted({...item,status:result.status,comment:result.comment}); $('review-status').textContent='Decision recorded. The document remains unpublished.';
+      } catch(error) { if(current()) { if(error.status===401) fail(error,'review-status'); else { $('review-status').textContent=workflowMessage(error); if(error.status===403) root.replaceChildren(); } } }
+      finally { if(current()) { fields.disabled=false; $('load-review-queue').disabled=false; } }
+    });
+  }
+
   async function draftOperation(action) {
     if (!token) return;
     const generation = epoch, sequence = ++draftSequence;
