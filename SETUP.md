@@ -56,6 +56,8 @@ Connection: host `127.0.0.1`, port `55432`, database `opslens`, bootstrap admini
 The random password is in `.env` (owner-readable only, excluded from Git).
 The implemented database selector and API use separate restricted reader accounts. The bootstrap administrator is used for setup, ingestion, and disposable test-database administration, never permission-enforced retrieval.
 
+The database container is named `runreviq-db` in Docker Desktop. The Compose group remains `opslens-local` for compatibility. Existing installations can rename the running container without restarting it: `docker rename opslens-local-db-1 runreviq-db`. The Compose configuration preserves this container name on future recreation.
+
 The named Docker volume `opslens-local_postgres_data` preserves data when the container stops or is recreated. It is not a backup. Do not use `docker compose down -v` unless intentionally erasing this project's database.
 
 The database publishes only on localhost, has a 1 GB container memory limit and a 2-CPU limit, and does not automatically restart. Docker Desktop itself consumes additional resources.
