@@ -61,3 +61,7 @@ Submission records reference exact immutable metadata-review revisions. Owners e
 ## Publication boundary
 
 An operator-owned publisher allowlist protects a separate publishing API. A restricted database account reads approved snapshots and atomically writes published versions, current reading permissions, and an immutable publication receipt. Source-bound claims are manually attested; quotations and fingerprints are constructed from stored source lines. Selection remains deterministic. See [storage and trust boundaries](publication.md#storage-and-boundaries).
+
+## Withdrawal and retained history
+
+A separate append-only `document_withdrawals` table records retirement of specific published revisions. Selection excludes withdrawn current revisions; source reads retain current ACL enforcement and return a warning status. Publisher management exposes history and withdrawal reasons without rewriting stored sources. The shared ingestion/publication lock serializes withdrawal against replacement. See [the lifecycle boundaries](publication-management.md).

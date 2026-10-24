@@ -123,3 +123,7 @@ Authors may submit their latest complete saved review. Separately designated rev
 ## Controlled publishing
 
 Separately assigned publishers can publish an independently approved snapshot with verified applicability, explicit reading roles, and manually reviewed, source-bound claims. Publication is transactional and preserves earlier revisions; authors can see the receipt. See [publication setup, workflow, and limitations](docs/publication.md).
+
+## Manage published guidance
+
+Designated publishers can list published documents, inspect immutable history, and withdraw current approved guidance with a recorded reason. Withdrawn revisions are excluded from new database-backed selection; authorized history access remains available with warnings. New approved revisions replace earlier ones without erasing history. See [publication management](docs/publication-management.md).

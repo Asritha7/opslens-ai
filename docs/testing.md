@@ -16,7 +16,7 @@ docker compose up -d --wait db
 RUNREVIQ_TEST_DATABASE=1 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The suite currently contains 142 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
+The suite currently contains 155 Python tests. Database tests create/drop a uniquely named `opslens_test_*` database and never truncate the development database. They use existing reader credentials without resetting their passwords. The admin account is needed to create/remove that temporary database. These are regression tests, not a held-out benchmark or a production security guarantee.
 
 Coverage includes exact/multiline citation validation, stale fingerprints, invalid citation batches, legacy evidence, hidden quotations, version boundaries, permissions, conflicts, missing context, safe explanations, source provenance, ambiguous extraction, authority-field rejection, transactional ingestion, immutable revisions, raw database reader restrictions, bearer-key validation/revocation, authorized revision retrieval, historical access revocation, identical missing/denied responses, and API-to-database integration. File/database parity covers 72 role/version/environment/rotation combinations.
 
@@ -78,3 +78,9 @@ Submission tests cover reviewer allowlist validation/revocation, server-derived 
 Publication tests cover separate access/revocation, server-derived actors, source citations, approval requirements, transactional validation, idempotent retries, concurrent requests, stale revision rejection, immutable history, current reading permissions, and restricted database grants. Browser tests cover explicit publication inputs, denied capability, failed requests, and late responses after logout. All integration writes use disposable databases.
 
 Manual publication QA used a disposable database and fictional author, reviewer, and publisher identities. The browser published an approved source with an explicit intern reading role and line-bound claim, then found it through selection and opened the stored revision. The test server and database were removed afterward.
+
+## Publication management
+
+Tests cover publisher authentication and revocation, withdrawal validation, stale revisions, idempotent retries, concurrent attempts, append-only grants, reader isolation, preserved source checksums, same-revision reingestion, newer approved replacements, superseded history, and paginated listings. Browser tests cover withdrawal input, clearing stale results, conflict feedback, logout races, and source warnings. Integration tests use disposable databases only.
+
+Manual lifecycle QA used two published revisions of a fictional upload in a disposable database. The browser showed revision 2 as active and revision 1 as superseded; after withdrawal with a reason, the same query returned insufficient evidence, while the withdrawn source and both revisions remained inspectable. The temporary server and database were removed. Migration 006 was checked to preserve the development database's existing source checksums and reading permissions without creating any withdrawals.

@@ -98,3 +98,6 @@ header{flex-wrap:wrap}
 #publish-preview li { white-space:pre-wrap; overflow-wrap:anywhere; font-family:monospace; }
 #publish-preview fieldset fieldset { margin:1rem 0; border:1px solid var(--border); padding:1rem; }
 #result h3, #result p, #viewer-title, #publish-preview p { overflow-wrap:anywhere; }
+#managed-history input[type="checkbox"] { width:auto; margin-right:.65rem; }
+#managed-list h3, #managed-list p, #managed-history h3, #managed-history p { overflow-wrap:anywhere; }
+#managed-list article, #managed-history article { border-top:1px solid var(--border); margin-top:1rem; padding-top:1rem; }

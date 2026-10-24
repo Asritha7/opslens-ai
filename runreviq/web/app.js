@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let authMode = 'loading';
-  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null, draftSequence = 0, reviewSequence = 0, publishSequence = 0;
+  let token = '', epoch = 0, querySequence = 0, viewSequence = 0, lastQuery = null, draftSequence = 0, reviewSequence = 0, publishSequence = 0, manageSequence = 0, managedSourceSequence = 0;
   const node = (tag, text, className) => {
     const item = document.createElement(tag);
     if (text !== undefined) item.textContent = text;
@@ -23,6 +23,7 @@
     $('access-status').textContent = message; $('result').replaceChildren(); clearViewer();
     $('query-status').textContent = 'Connect and describe your situation to begin.';
     draftSequence++; $('draft-fields').disabled = true; $('draft-file').value = ''; $('draft-list').replaceChildren(); $('draft-preview').replaceChildren(); $('draft-status').textContent = 'Connect to upload or view your drafts.';
+    manageSequence++; managedSourceSequence++; $('managed-list').replaceChildren(); $('managed-history').replaceChildren(); $('managed-source').replaceChildren(); $('load-managed').disabled=true; $('manage-status').textContent='Connect to check publisher access.';
     publishSequence++; $('publish-queue').replaceChildren(); $('publish-preview').replaceChildren(); $('load-publish-queue').disabled = true; $('publish-status').textContent = 'Connect to check publisher access.';
     reviewSequence++; $('review-queue').replaceChildren(); $('submission-preview').replaceChildren(); $('load-review-queue').disabled = true; $('review-status').textContent = 'Connect to check reviewer access.';
     $('connect').disabled = false; $('submit-query').disabled = false;
@@ -58,7 +59,7 @@
       const identity = await request('/v1/me', {}, credential);
       if (generation !== epoch) return;
       token = credential; $('identity').textContent = `${identity.subject} · ${identity.role}`;
-      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('load-publish-queue').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
+      $('access-form').hidden = true; $('disconnect').hidden = false; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('load-publish-queue').disabled = false; $('load-managed').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
       $('access-status').textContent = 'Connected. Access is limited to your assigned role.'; $('service').focus();
     } catch (error) { if (generation === epoch) fail(error, 'access-status'); }
     finally { if (generation === epoch) $('connect').disabled = false; }
@@ -94,7 +95,7 @@
             $('access-status').textContent = `Signed in, but no role is assigned. Give the operator your Google subject ID: ${identity.subject}`;
             return;
           }
-          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('load-publish-queue').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
+          token = 'session'; $('google-access').hidden = true; $('query-fields').disabled = false; $('draft-fields').disabled = false; $('load-review-queue').disabled = false; $('load-publish-queue').disabled = false; $('load-managed').disabled = false; $('draft-status').textContent = 'Choose a Markdown file or load your saved drafts.';
           $('identity').textContent = `Google account · ${identity.role}`;
           $('access-status').textContent = 'Connected with a server session. Disconnect to sign out.';
         } catch (error) {
@@ -119,7 +120,7 @@
       const doc = await request(`/v1/documents/${encodeURIComponent(reference.document_id)}/revisions/${encodeURIComponent(reference.revision)}`);
       if (generation !== epoch || sequence !== viewSequence) return;
       $('viewer-title').textContent = `${doc.document_id} · ${doc.title}`;
-      $('viewer-meta').textContent = `Revision ${doc.revision} · ${doc.is_current ? 'Current revision' : `Historical revision — current is ${doc.current_revision}`} · Recorded status: ${doc.revision_status}`;
+      $('viewer-meta').textContent = `Revision ${doc.revision} · ${doc.is_current ? 'Current revision' : `Historical revision — current is ${doc.current_revision}`} · Recorded status: ${doc.revision_status}${doc.guidance_status ? ' · Guidance status: '+doc.guidance_status : ''}${doc.withdrawal ? ' · WITHDRAWN — do not use as guidance. Reason: '+doc.withdrawal.reason : ''}`;
       const lines = doc.content.split(/\r\n|\n|\r/); if (lines.at(-1) === '') lines.pop();
       const quoteMatches = citation && citation.document_id === doc.document_id && citation.revision === doc.revision &&
         lines.slice(citation.start_line - 1, citation.end_line).join('\n') === citation.quote;
@@ -395,6 +396,70 @@
       } catch(error) {if(current()) {if(error.status===401)fail(error,'publish-status');else {$('publish-status').textContent=publicationError(error);if(error.status===403)root.replaceChildren();}}}
       finally {if(current()){fields.disabled=false;$('load-publish-queue').disabled=false;}}
     });
+  }
+
+  function managementError(error) {
+    if(error.status===409) return 'The current revision or withdrawal changed. Reload the document history before trying again.';
+    if(error.status===422) return 'Withdrawal needs a current approved revision and a nonempty reason of at most 2,000 characters.';
+    return workflowMessage(error);
+  }
+  async function managementOperation(action) {
+    if(!token)return;
+    const generation=epoch,sequence=++manageSequence,current=()=>generation===epoch&&sequence===manageSequence;
+    managedSourceSequence++;$('managed-list').replaceChildren();$('managed-history').replaceChildren();$('managed-source').replaceChildren();
+    $('load-managed').disabled=true;$('manage-status').textContent='Loading published history…';
+    try {await action(current);}
+    catch(error) {if(current()){if(error.status===401)fail(error,'manage-status');else $('manage-status').textContent=managementError(error);}}
+    finally {if(current())$('load-managed').disabled=false;}
+  }
+  async function loadManaged(after='') {
+    return managementOperation(async current=>{
+      const result=await request('/v1/publication-management/documents'+(after?'?after='+encodeURIComponent(after):''));if(!current())return;
+      $('manage-status').textContent=result.documents.length?'Published documents, ordered by ID. Open one to inspect its history.':'No published documents on this page.';
+      for(const item of result.documents){
+        const card=node('article');card.append(node('h3',item.title),node('p',`${item.document_id} · revision ${item.current_revision} · ${item.status}`),node('p',`Reading roles: ${item.allowed_roles.join(', ')||'None'} · Published: ${item.published_at}`));
+        card.append(button('Inspect '+item.document_id,()=>managementOperation(async active=>{
+          const doc=await request('/v1/publication-management/documents/'+encodeURIComponent(item.document_id));if(!active())return;
+          renderManagedHistory(doc);$('manage-status').textContent='History is preserved. Only the current approved revision can be withdrawn.';
+        })));$('managed-list').append(card);
+      }
+      if(result.next_after)$('managed-list').append(button('Next page',()=>loadManaged(result.next_after)));
+    });
+  }
+  $('load-managed').addEventListener('click',()=>loadManaged());
+  function renderManagedHistory(doc) {
+    const root=$('managed-history');root.replaceChildren(node('h3',doc.document_id),node('p',`Current revision: ${doc.current_revision} · Reading roles for all history: ${doc.allowed_roles.join(', ')||'None'}`));
+    const generation=epoch,sequence=manageSequence,current=()=>generation===epoch&&sequence===manageSequence;
+    for(const revision of doc.revisions){
+      const card=node('article');card.append(node('h4',`Revision ${revision.revision} · ${revision.status}`),node('p',revision.title),node('p','Published: '+revision.published_at));
+      if(revision.superseded_by)card.append(node('p','Replaced by current revision '+revision.superseded_by+'.'));
+      if(revision.withdrawal)card.append(node('p',`Withdrawn: ${revision.withdrawal.withdrawn_at} · Reason: ${revision.withdrawal.reason}`));
+      card.append(button('Inspect source revision '+revision.revision,async()=>{
+        const sourceSequence=++managedSourceSequence;const active=()=>current()&&sourceSequence===managedSourceSequence;
+        $('managed-source').replaceChildren(node('p','Loading stored source…'));
+        try {
+          const source=await request(`/v1/publication-management/documents/${encodeURIComponent(doc.document_id)}/revisions/${revision.revision}`);if(!active())return;
+          $('managed-source').replaceChildren(node('h3',`Stored revision ${source.revision} · ${source.status}`),node('p',source.status==='active'?'Check applicability before acting.':'Historical or withdrawn evidence — do not use as current guidance.'),node('pre',source.content));
+          if(source.withdrawal)$('managed-source').append(node('p','Withdrawal reason: '+source.withdrawal.reason));
+        } catch(error){if(active()){ $('managed-source').replaceChildren();if(error.status===401)fail(error,'manage-status');else {$('manage-status').textContent=managementError(error);if(error.status===403)root.replaceChildren();}}}
+      }));root.append(card);
+      if(!revision.is_current||revision.status!=='active')continue;
+      const form=node('form'),fields=node('fieldset'),reason=node('textarea'),label=node('label','Reason for withdrawal');reason.id='withdraw-reason';reason.required=true;reason.maxLength=2000;label.htmlFor=reason.id;
+      const confirmLabel=node('label'),confirm=node('input');confirm.type='checkbox';confirm.required=true;confirmLabel.append(confirm,node('span','I understand this stops new recommendations for this revision; stored history remains readable to authorized users.'));
+      const submit=node('button','Withdraw revision '+revision.revision);submit.type='submit';fields.append(label,reason,confirmLabel,submit);form.append(fields);card.append(form);
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();if(!token||fields.disabled||!confirm.checked)return;
+        fields.disabled=true;$('load-managed').disabled=true;
+        try {
+          const receipt=await request(`/v1/publication-management/documents/${encodeURIComponent(doc.document_id)}/withdraw`,{method:'POST',body:JSON.stringify({expected_revision:revision.revision,reason:reason.value})});if(!current())return;
+          managedSourceSequence++;$('managed-source').replaceChildren();
+          querySequence++;lastQuery=null;$('result').replaceChildren();clearViewer();$('submit-query').disabled=false;$('query-status').textContent='Guidance changed. Run a new query for current evidence.';
+          renderManagedHistory({...doc,revisions:doc.revisions.map(r=>r.revision===receipt.revision?{...r,status:'withdrawn',withdrawal:{reason:receipt.reason,withdrawn_at:receipt.withdrawn_at}}:r)});
+          $('manage-status').textContent='Withdrawn. New queries exclude this revision. Source and history are preserved.';
+        } catch(error){if(current()){if(error.status===401)fail(error,'manage-status');else {$('manage-status').textContent=managementError(error);if(error.status===403){root.replaceChildren();$('managed-source').replaceChildren();}}}}
+        finally {if(current()){fields.disabled=false;$('load-managed').disabled=false;}}
+      });
+    }
   }
 
   async function draftOperation(action) {
