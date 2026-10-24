@@ -19,7 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from runreviq.database import load_authorized_documents, load_authorized_revision
-from runreviq import submissions, publications
+from runreviq import submissions, publications, lifecycle
 from runreviq.selector import ROOT, ROLES, select
 from runreviq.oidc import GoogleSessions, install_routes
 from runreviq.drafts import create_draft, list_drafts, get_draft, owner_key, DraftLimit, DraftInputError, MAX_BYTES, save_review, ReviewConflict
@@ -110,6 +110,12 @@ class PublicationRequest(BaseModel):
     allowed_roles: list[Literal['platform', 'security', 'intern']] = Field(min_length=1, max_length=3)
     claims: list[PublicationClaim] = Field(min_length=1, max_length=20)
     metadata_verified: StrictBool
+
+
+class WithdrawalRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    expected_revision: int = Field(ge=1, le=2147483647)
+    reason: str = Field(min_length=1, max_length=2000)
 
 
 def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
@@ -284,6 +290,35 @@ def create_app(*, key_file=KEY_FILE, document_loader=load_authorized_documents,
     def publish_submission(submission_id: UUID, body: PublicationRequest, actor=Depends(publisher)):
         return workflow_call(publications.publish, actor, submission_id, body.allowed_roles,
                              [claim.model_dump() for claim in body.claims], body.metadata_verified)
+
+    def lifecycle_call(function, *args):
+        try:
+            result = function(*args)
+        except ReviewConflict:
+            raise HTTPException(409, 'Revision or withdrawal changed; reload history') from None
+        except DraftInputError:
+            raise HTTPException(422, 'Use a valid document, current approved revision, and nonempty reason') from None
+        except (psycopg.Error, ValueError, OSError):
+            raise HTTPException(503, 'Publication management unavailable') from None
+        if result is None:
+            raise HTTPException(404, 'Published document or revision not found')
+        return result
+
+    @app.get('/v1/publication-management/documents')
+    def managed_documents(after: str = '', actor=Depends(publisher)):
+        return lifecycle_call(lifecycle.documents, after)
+
+    @app.get('/v1/publication-management/documents/{document_id}')
+    def managed_history(document_id: str, actor=Depends(publisher)):
+        return lifecycle_call(lifecycle.history, document_id)
+
+    @app.get('/v1/publication-management/documents/{document_id}/revisions/{number}')
+    def managed_revision(document_id: str, number: int, actor=Depends(publisher)):
+        return lifecycle_call(lifecycle.revision, document_id, number)
+
+    @app.post('/v1/publication-management/documents/{document_id}/withdraw')
+    def withdraw_document(document_id: str, body: WithdrawalRequest, actor=Depends(publisher)):
+        return lifecycle_call(lifecycle.withdraw, actor, document_id, body.expected_revision, body.reason)
 
     @app.get('/', include_in_schema=False)
     def workspace():

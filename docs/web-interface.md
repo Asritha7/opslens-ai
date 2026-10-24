@@ -61,3 +61,7 @@ Draft owners can explicitly submit a saved complete revision and check decision 
 ## Publisher workspace
 
 **Publish approved guidance** checks separate publisher access, lists approved eligible submissions, and displays the exact source with line numbers. Publishers confirm metadata verification, explicitly select reading roles, and enter cited claims. Success shows a publication receipt; failed requests preserve input, and disconnect clears protected content. See [publication](publication.md).
+
+## Manage published guidance
+
+The publisher-only management section lists 50 documents per page, shows current reading roles and status, and opens revision history/source. Withdrawal requires a reason and explicit acknowledgment. Conflicts preserve typed input; permission loss clears protected views. Successful withdrawal clears the current browser’s old query results. The ordinary source viewer warns on withdrawn evidence and identifies superseded revisions. See [the workflow](publication-management.md).

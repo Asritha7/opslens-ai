@@ -238,3 +238,7 @@ Rerun the credential-generation block to add the missing `REVIEW_PASSWORD`, run 
 ## Controlled publishing
 
 Rerun the credential-generation block to add only the missing `PUBLISH_PASSWORD`, apply migration 005 with `.venv/bin/python -m runreviq.database bootstrap`, and restart the API. Run `.venv/bin/python -m runreviq.publications init-publishers` to create an empty private allowlist. No identity is assigned automatically. See [publisher assignment and workflow](docs/publication.md).
+
+## Published guidance management
+
+Apply migration 006 using `.venv/bin/python -m runreviq.database bootstrap` and restart the API. No new credentials or assignments are needed. Existing publisher permission gates **Manage published guidance**. See [withdrawal behavior, retained history, and limitations](docs/publication-management.md).

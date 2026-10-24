@@ -108,3 +108,7 @@ Authenticated users with an assigned role can create, list, and read their own u
 ## Submission workflow endpoints
 
 Owners submit complete saved review revisions; separately authorized reviewers inspect and decide them. Reading roles alone grant no reviewer access. See [the submission API and authority boundaries](submissions.md#api). Approval does not publish.
+
+## Publication management
+
+Publisher-only list/history/source/withdrawal routes live under `/v1/publication-management/documents`. See [contracts and status codes](publication-management.md#api). Ordinary source responses additionally include `guidance_status` and `withdrawal`; immutable `revision_status` is unchanged. Database-backed selection excludes withdrawn current revisions, without falling back to older ones.

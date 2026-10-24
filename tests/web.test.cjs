@@ -209,3 +209,36 @@ test('publication rejection preserves form and explains invalid claims',async()=
   const form=descendants(h.get('publish-preview')).find(n=>n.tag==='form');form.fire('submit');h.respond(4,{},422);await tick();
   assert.match(h.get('publish-status').textContent,/source line ranges/);assert.equal(form.children[0].disabled,false);
 });
+
+const managedDoc={document_id:'RB-001',current_revision:2,allowed_roles:['platform'],revisions:[{revision:2,title:'Guide',status:'active',is_current:true,published_at:'today',withdrawal:null},{revision:1,title:'Older',status:'superseded',is_current:false,superseded_by:2,published_at:'yesterday',withdrawal:null}]};
+async function managementHarness(){
+  const h=harness();await h.login();h.get('load-managed').fire('click');
+  h.respond(1,{documents:[{document_id:'RB-001',title:'Guide',current_revision:2,status:'active',allowed_roles:['platform'],published_at:'today'}],next_after:null});await tick();
+  find(h.get('managed-list'),'Inspect RB-001').fire('click');h.respond(2,managedDoc);await tick();return h;
+}
+test('withdrawal sends current revision and reason, clears old recommendations and preserves history',async()=>{
+  const h=await managementHarness();const nodes=descendants(h.get('managed-history'));
+  assert.ok(nodes.some(e=>e.textContent==='Replaced by current revision 2.'));
+  nodes.find(e=>e.tag==='textarea').value='Unsafe <script>text</script>';nodes.find(e=>e.type==='checkbox').checked=true;
+  h.get('result').append(new Element());nodes.find(e=>e.tag==='form').fire('submit');
+  assert.equal(h.pending[3].url,'/v1/publication-management/documents/RB-001/withdraw');
+  assert.deepEqual(JSON.parse(h.pending[3].options.body),{expected_revision:2,reason:'Unsafe <script>text</script>'});
+  h.respond(3,{revision:2,status:'withdrawn',reason:'Unsafe <script>text</script>',withdrawn_at:'now'});await tick();
+  assert.equal(h.get('result').children.length,0);assert.match(h.get('manage-status').textContent,/New queries exclude/);
+  assert.ok(descendants(h.get('managed-history')).some(e=>e.textContent.includes('Unsafe <script>text</script>')));
+  assert.equal(find(h.get('managed-history'),'Withdraw revision 2'),undefined);
+});
+test('withdrawal conflict preserves reason and logout discards late source',async()=>{
+  const h=await managementHarness();const nodes=descendants(h.get('managed-history'));const reason=nodes.find(e=>e.tag==='textarea');reason.value='Keep this reason';nodes.find(e=>e.type==='checkbox').checked=true;
+  nodes.find(e=>e.tag==='form').fire('submit');h.respond(3,{},409);await tick();
+  assert.equal(reason.value,'Keep this reason');assert.match(h.get('manage-status').textContent,/Reload/);
+  find(h.get('managed-history'),'Inspect source revision 1').fire('click');h.get('disconnect').fire('click');
+  h.respond(4,{revision:1,status:'superseded',content:'private'});await tick();
+  assert.equal(h.get('managed-source').children.length,0);assert.equal(h.get('managed-history').children.length,0);
+});
+test('source viewer explicitly warns when formerly recommended evidence is withdrawn',async()=>{
+  const h=harness();await h.login();h.get('query-form').fire('submit');h.respond(1,result);await tick();
+  find(h.get('result'),'Read stored revision').fire('click');
+  h.respond(2,{document_id:'RB-042',revision:1,title:'Guide',content:'source',checksum:'abc',current_revision:1,is_current:true,revision_status:'approved',guidance_status:'withdrawn',withdrawal:{reason:'Outdated'}});await tick();
+  assert.match(h.get('viewer-meta').textContent,/WITHDRAWN — do not use as guidance/);
+});

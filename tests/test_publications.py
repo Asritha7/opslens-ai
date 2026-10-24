@@ -85,7 +85,7 @@ class PublicationDatabaseTests(unittest.TestCase):
     def setUp(self):
         assert self.dbname.startswith('opslens_test_')
         with connect(dbname=self.dbname) as conn:
-            conn.execute('TRUNCATE opslens.publications, opslens.document_versions, opslens.documents, opslens.submission_decisions, opslens.draft_submissions, opslens.draft_reviews, opslens.upload_drafts')
+            conn.execute('TRUNCATE opslens.document_withdrawals, opslens.publications, opslens.document_versions, opslens.documents, opslens.submission_decisions, opslens.draft_submissions, opslens.draft_reviews, opslens.upload_drafts')
         self.owner=owner_key('demo',uuid.uuid4().hex);self.reviewer=owner_key('demo','reviewer');self.publisher=owner_key('demo','publisher')
         self.draft=create_draft(self.owner,'example.md',SOURCE,dbname=self.dbname)
         self.sub=self.round(0)
@@ -165,6 +165,17 @@ class PublicationDatabaseTests(unittest.TestCase):
         self.assertEqual(result['status'],'conflict')
         self.assertTrue(any(set(p)==pair for p in result['conflicts']))
         self.assertTrue(all(d['citation_status']=='available' for c in result['conflict_details'] for d in c['documents']))
+
+    def test_withdrawn_publication_retry_stays_withdrawn_and_new_approval_replaces_it(self):
+        from runreviq import lifecycle
+        first=self.publish()
+        lifecycle.withdraw(self.publisher,first['document_id'],1,'Outdated',dbname=self.dbname)
+        self.assertEqual(first,self.publish())
+        self.assertNotIn(first['document_id'],[d['id'] for d in load_authorized_documents('platform',dbname=self.dbname)])
+        second=self.round(1);self.publish(second)
+        self.assertIn(first['document_id'],[d['id'] for d in load_authorized_documents('platform',dbname=self.dbname)])
+        history=lifecycle.history(first['document_id'],dbname=self.dbname)
+        self.assertEqual([r['status'] for r in history['revisions']],['active','withdrawn'])
 
     def test_reviewer_cannot_publish_and_publisher_cannot_decide_or_delete(self):
         with connect_reviewer(self.dbname) as conn,self.assertRaises(psycopg.errors.InsufficientPrivilege):

@@ -185,6 +185,8 @@ def load_authorized_documents(role, *, dbname='opslens'):
     with connect(role=role, dbname=dbname) as conn:
         rows = conn.execute('''SELECT v.metadata, d.allowed_roles, v.content FROM opslens.documents d
                                JOIN opslens.document_versions v ON v.document_id=d.id AND v.revision=d.current_revision
+                               WHERE NOT EXISTS (SELECT 1 FROM opslens.document_withdrawals w
+                                   WHERE w.document_id=d.id AND w.revision=d.current_revision)
                                ORDER BY d.id''').fetchall()
     documents = []
     for metadata, roles, content in rows:
@@ -203,18 +205,21 @@ def load_authorized_revision(role, document_id, revision, *, dbname='opslens'):
     if type(revision) is not int or not 1 <= revision <= 2147483647:
         raise ValueError('Invalid revision')
     with connect(role=role, dbname=dbname) as conn:
-        row = conn.execute("""SELECT v.metadata, v.content, v.checksum, d.current_revision
+        row = conn.execute("""SELECT v.metadata, v.content, v.checksum, d.current_revision, w.reason, w.created_at
                               FROM opslens.document_versions v
                               JOIN opslens.documents d ON d.id=v.document_id
+                              LEFT JOIN opslens.document_withdrawals w ON w.document_id=v.document_id AND w.revision=v.revision
                               WHERE v.document_id=%s AND v.revision=%s""",
                            (document_id, revision)).fetchone()
     if row is None:
         return None
-    metadata, content, checksum, current_revision = row
+    metadata, content, checksum, current_revision, reason, withdrawn_at = row
     return {'document_id': document_id, 'revision': revision,
             'title': metadata['title'], 'content': content, 'checksum': checksum,
             'current_revision': current_revision, 'is_current': revision == current_revision,
-            'revision_status': metadata['status']}
+            'revision_status': metadata['status'],
+            'guidance_status': 'withdrawn' if reason is not None else 'superseded' if revision != current_revision else 'active' if metadata['status']=='approved' else metadata['status'],
+            'withdrawal': {'reason':reason,'withdrawn_at':withdrawn_at.isoformat()} if reason is not None else None}
 
 
 def main():
